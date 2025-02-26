@@ -146,16 +146,16 @@ angular.module('netStatsApp.filters', [])
 			return "0 wei";
 
 		if(price.length < 4)
-			return numberFilter(price) + " wei";
+			return numberFilter(price) + " niku";
 
 		if(price.length < 7)
-			return numberFilter(price/1000) + " kwei";
+			return numberFilter(price/1000) + " kniku";
 
 		if(price.length < 10)
-			return numberFilter(price/1000000) + " mwei";
+			return numberFilter(price/1000000) + " mniku";
 
 		if(price.length < 13)
-			return numberFilter(price/1000000000) + " gwei";
+			return numberFilter(price/1000000000) + " gniku";
 
 		if(price.length < 16)
 			return numberFilter(price/1000000000000) + " szabo";
@@ -300,7 +300,7 @@ angular.module('netStatsApp.filters', [])
 
 		var result = hashes;
 		var units = ['', 'K', 'M', 'G', 'T', 'P'];
-		var unit = 'K';
+		var unit = '';
 
 		for(var i = 1; result > 1000; i++)
 		{
@@ -311,7 +311,7 @@ angular.module('netStatsApp.filters', [])
 		if( !isMining )
 			return $sce.trustAsHtml(filter('number')(result.toFixed(1)) + ' <span class="small-hash">' + unit + 'H/s</span>');
 
-		return $sce.trustAsHtml('? <span class="small-hash">' + unit + 'KH/s</span>');
+		return $sce.trustAsHtml('? <span class="small-hash">' + unit + 'H/s</span>');
 	};
 }])
 .filter('blockPropagationFilter', function() {

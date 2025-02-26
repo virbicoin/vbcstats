@@ -64,7 +64,7 @@ angular.module('netStatsApp.filters', [])
 
 		var result = hashes;
 		var units = ['', 'K', 'M', 'G', 'T', 'P', 'E'];
-		var unit = 'K';
+		var unit = '';
 
 		for(var i = 1; result > 1000; i++)
 		{

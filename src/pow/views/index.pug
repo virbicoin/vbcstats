@@ -2,6 +2,40 @@
 extends ./layout.pug
 
 block content
+  div.header-wrapper
+    div.header
+      div.header-title
+        h1 {{ $root.networkName }} Network Status
+      nav.top-links
+        ul
+          li
+            a(href="https://pool.digitalregion.jp/", class="active")
+              i.fa-solid.fa-gauge-high
+              span Dashboard
+          li
+            a(href="https://pool.digitalregion.jp/#/help")
+              i.fa-solid.fa-rocket
+              span Getting Started
+          li
+            a(href="https://pool.digitalregion.jp/#/blocks")
+              i.fa-solid.fa-cubes
+              span Pool Blocks
+          li
+            a(href="https://pool.digitalregion.jp/#/payments")
+              i.fa-solid.fa-credit-card
+              span Payments
+          li
+            a(href="https://pool.digitalregion.jp/#/miners")
+              i.fa-solid.fa-users
+              span Miners
+          li
+            a(href="https://pool.digitalregion.jp/")
+              i.fa-solid.fa-person-digging
+              span Mining Pool
+          li
+            a(href="https://pool.digitalregion.jp/#/about")
+              i.fa-solid.fa-circle-info
+              span About
   div.container-fluid(ng-controller='StatsCtrl')
     div.row(ng-cloak)
       div.col-xs-2.stat-holder

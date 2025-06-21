@@ -8,8 +8,9 @@
     "npm": "8.15.0"
   },
   "scripts": {
-    "dist": "grunt",
-    "start": "node ./bin/www"
+    "dist": "grunt pow",
+    "build": "grunt pow",
+    "start": "WS_SECRET='Aoi0124' node ./bin/www"
   },
   "dependencies": {
     "body-parser": "^1.18.3",

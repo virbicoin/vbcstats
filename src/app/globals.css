@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+/* Global styles */
+@import "tailwindcss";
+
+/* Custom animations for new blocks */
+@keyframes newBlockFlash {
+  0% {
+    background-color: rgba(34, 197, 94, 0.4);
+    border-color: rgba(34, 197, 94, 0.8);
+    box-shadow: 0 0 25px rgba(34, 197, 94, 0.6);
+    transform: scale(1.05);
+  }
+
+  25% {
+    background-color: rgba(34, 197, 94, 0.3);
+    border-color: rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+    transform: scale(1.02);
+  }
+
+  50% {
+    background-color: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+    transform: scale(1.01);
+  }
+
+  100% {
+    background-color: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.2);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+    transform: scale(1);
+  }
+}
+
+.new-block-animation {
+  animation: newBlockFlash 3s ease-in-out;
+}
+
+/* Modern fade-in animation */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.6s ease-out;
+}
+
+/* Links */
+a {
+  color: #fff;
+}
+
+a:hover {
+  color: #89cff0;
+  text-decoration: none;
+}
+
+/* Custom styles adapted from VirBiCoin Pool */
+@layer base {
+  body {
+    padding-top: 0;
+    margin-bottom: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-white;
+  }
+}
+
+/* Propagation color classes */
+.propagation-zero {
+  color: #60a5fa !important; /* blue-400 */
+}
+
+.propagation-fast {
+  color: #4ade80 !important; /* green-400 */
+}
+
+.propagation-medium {
+  color: #facc15 !important; /* yellow-400 */
+}
+
+.propagation-slow {
+  color: #fb923c !important; /* orange-400 */
+}
+
+.propagation-very-slow {
+  color: #f87171 !important; /* red-400 */
+}
+
+.propagation-inactive {
+  color: #9ca3af !important; /* gray-400 */
+}
+
+/* Specific selector for table cells with propagation classes */
+td.propagation-zero {
+  color: #60a5fa !important;
+}
+
+td.propagation-fast {
+  color: #4ade80 !important;
+}
+
+td.propagation-medium {
+  color: #facc15 !important;
+}
+
+td.propagation-slow {
+  color: #fb923c !important;
+}
+
+td.propagation-very-slow {
+  color: #f87171 !important;
+}
+
+td.propagation-inactive {
+  color: #9ca3af !important;
+}
+
+/* Custom container for large screens */
+.container-full {
+  width: 100%;
+  max-width: 1920px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 1536px) {
+  .container-full {
+    max-width: 1920px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .container-full {
+    max-width: 1920px;
+    width: 1920px;
+  }
+}
+
+/* Header and Footer wrapper with max-width */
+.header-footer-wrapper {
+  max-width: 1920px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Dark mode styles for Leaflet map */
+.leaflet-container {
+  background: #1f2937 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(31, 41, 55, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(75, 85, 99, 0.5) !important;
+  border-radius: 8px !important;
+}
+
+.leaflet-popup-content {
+  color: #f3f4f6 !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(31, 41, 55, 0.95) !important;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #374151;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Custom tooltip styles */
+.tooltip {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+} 
+

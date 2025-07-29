@@ -1,68 +1,114 @@
-Ethereum Network Stats with POA and POW support
-===============================================
-[![Build Status][travis-image]][travis-url] [![dependency status][dep-image]][dep-url]
+# VBC Stats - Network Dashboard
 
-This is a visual interface for tracking proof-of-work ("mainnet") and proof-of-authority ("testnet") network status. It uses WebSockets to receive stats from running nodes and output them through an angular interface. It is the front-end implementation for [ethstats-client](https://github.com/goerli/ethstats-client).
+A modern, real-time blockchain network statistics dashboard built with Next.js 15, React 18, and TypeScript.
 
-## Proof-of-Authority
-![Screenshot](src/images/screenshot-poa.png "Screenshot POA")
+## Features
 
-* Demo: https://stats.goerli.net/
-* Demo: https://kotti.goerli.net/
+- **Real-time Statistics**: Live updates of blockchain network metrics
+- **Modern UI**: Beautiful, responsive design with Tailwind CSS
+- **Interactive Charts**: D3.js powered sparklines and histograms
+- **TypeScript**: Full type safety and better developer experience
+- **Next.js 15**: Latest React framework with App Router
 
-#### Prerequisite
-* node
-* npm
+## Tech Stack
 
-#### Installation
-Make sure you have node.js and npm installed.
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Charts**: D3.js
+- **Real-time**: Socket.IO Client
+- **Icons**: Custom SVG icons
 
-Clone the repository and install the dependencies:
+## Getting Started
 
+### Prerequisites
+
+- Node.js 18.17.0 or later
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
 ```bash
-git clone https://github.com/goerli/ethstats-server
-cd ethstats-server
+git clone <repository-url>
+cd vbcstats
+```
+
+2. Install dependencies:
+```bash
 npm install
-sudo npm install -g grunt-cli
 ```
 
-#### Build
-In order to build the static files you have to run grunt tasks which will generate dist directories containing the js and css files, fonts and images.
-
+3. Start the development server:
 ```bash
-grunt poa
+npm run dev
 ```
 
-To build the static files for a network other than Ethereum copy and change src/js/defaultConfig.js and run the following command.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-```bash
-grunt poa --configPath="src/js/someOtherConfig.js"
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+
+## Project Structure
+
+```
+src/
+├── app/                 # Next.js App Router
+│   ├── layout.tsx      # Root layout
+│   ├── page.tsx        # Home page
+│   └── globals.css     # Global styles
+├── components/          # React components
+│   ├── StatCard.tsx    # Statistics card
+│   ├── ChartCard.tsx   # Chart component
+│   └── MinerBlocks.tsx # Miner blocks display
+└── types/              # TypeScript type definitions
+    ├── stats.ts        # Statistics types
+    └── icons.ts        # Icon types
 ```
 
-#### Run
-Start a node process and pass the websocket secret to it.
+## Features
 
-```bash
-WS_SECRET="asdf" npm start
+### Network Statistics
+- Best block number
+- Last block timestamp
+- Average block time
+- Gas price and limit
+- Active/total nodes
+
+### Real-time Charts
+- Block time sparklines
+- Block propagation histograms
+- Transaction density
+- Gas spending trends
+- Gas limit history
+
+### Miner Information
+- Top miners by blocks
+- Block count per miner
+- Visual indicators
+
+## Configuration
+
+The application connects to a WebSocket server for real-time data. Update the socket connection URL in `src/app/page.tsx` if needed:
+
+```typescript
+const newSocket = io('http://localhost:3000', {
+  path: '/primus'
+})
 ```
-Find the interface at http://localhost:3000
 
-## Proof-of-Work (Legacy)
+## Contributing
 
-![Screenshot](src/images/screenshot-pow.png "Screenshot POW")
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-* Demo: https://mordor.dash.fault.dev/
+## License
 
-Same as above, just run the `pow` build task in Grunt.
-
-```bash
-grunt pow
-WS_SECRET="asdf" npm start
-```
-
-:-)
-
-[travis-image]: https://travis-ci.org/goerli/ethstats-server.svg
-[travis-url]: https://travis-ci.org/goerli/ethstats-server
-[dep-image]: https://david-dm.org/goerli/ethstats-server.svg
-[dep-url]: https://david-dm.org/goerli/ethstats-server
+This project is licensed under the MIT License.

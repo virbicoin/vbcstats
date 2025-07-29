@@ -34,13 +34,63 @@ var banned   = require('./lib/utils/config').banned;
 var reserved = require('./lib/utils/config').reserved;
 
 // Init http server
-if( process.env.NODE_ENV !== 'production' )
-{
-	var app = require('./lib/express');
-	server = http.createServer(app);
+var app = require('./lib/express');
+server = http.createServer(app);
+
+// Add basic test endpoint
+app.get('/test', function(req, res) {
+	res.json({ message: 'Server is working!' });
+});
+
+// Add API endpoint for Next.js app
+app.get('/api/stats', function(req, res) {
+	res.setHeader('Content-Type', 'application/json');
+	res.setHeader('Access-Control-Allow-Origin', '*');
+	res.setHeader('Access-Control-Allow-Methods', 'GET');
+	res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+	
+	// Return simple test data
+	res.json({
+		bestBlock: 300939,
+		lastBlock: Date.now(),
+		message: "API is working!"
+	});
+});
+
+// Export server for bin/www
+module.exports = server;
+
+// Start server if this file is run directly
+if (require.main === module) {
+	server.listen(4000, function() {
+		console.log('Server is running on port 4000');
+		console.log('Test endpoint: http://localhost:4000/test');
+		console.log('API endpoint: http://localhost:4000/api/stats');
+	});
 }
-else
-	server = http.createServer();
+
+// Start server for bin/www
+// Handle server errors
+server.on('error', function(error) {
+	   console.error('Server error:', error);
+});
+
+// Handle process errors
+process.on('uncaughtException', function(error) {
+	   console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', function(reason, promise) {
+	   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+if (require.main === module) {
+	   server.listen(4000, function() {
+			   console.log('Server is running on port 4000');
+			   console.log('Test endpoint: http://localhost:4000/test');
+			   console.log('API endpoint: http://localhost:4000/api/stats');
+	   });
+}
 
 // Init socket vars
 var Primus = require('primus');
@@ -432,6 +482,5 @@ var nodeCleanupTimeout = setInterval( function ()
 
 }, 1000*60*60);
 
-server.listen(process.env.PORT || 4000);
-
+// Don't start server here - let bin/www handle it
 module.exports = server;

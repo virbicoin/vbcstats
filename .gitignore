@@ -12,3 +12,6 @@ config/nodes.js
 ws_secret.json
 stats.json
 .env
+.next
+.vscode
+next-env.d.ts

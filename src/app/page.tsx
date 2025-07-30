@@ -488,7 +488,22 @@ function HomePage() {
           // Handle block updates - refresh all data (both nodes and stats will be updated)
           if (typedMessage.data.nodes && typedMessage.data.stats) {
             // Full block update with nodes and stats - this is the primary case for timer reset
-            const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes);
+            // For block updates, preserve existing coordinates instead of re-processing
+            const nodesWithPreservedCoords = typedMessage.data.nodes.map(newNode => {
+              // Check if we already have coordinates for this node
+              const existingCoords = nodeCoordinatesRef.current.get(newNode.id);
+              if (existingCoords) {
+                return {
+                  ...newNode,
+                  latitude: existingCoords.latitude,
+                  longitude: existingCoords.longitude
+                };
+              }
+              return newNode;
+            });
+            
+            // Only process coordinates for new nodes that don't have stored coordinates
+            const nodesWithCoords = await addCoordinatesToNodes(nodesWithPreservedCoords);
             setNodes(nodesWithCoords);
             
             // Check if bestBlock changed before resetting timer

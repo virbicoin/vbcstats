@@ -46,6 +46,12 @@ const nextConfig: NextConfig = {
       };
     }
     
+    // Handle geoip-lite data files for server-side usage
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push('geoip-lite/data');
+    }
+    
     // Optimize chunk splitting for production
     if (!dev && !isServer) {
       config.optimization = {

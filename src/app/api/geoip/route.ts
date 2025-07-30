@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import geoip from 'geoip-lite';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -22,7 +21,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Private IP address not supported' }, { status: 400 });
     }
 
-    const geo = geoip.lookup(ip);
+    // Dynamic import to avoid build-time issues
+    const geoip = await import('geoip-lite');
+    const geo = geoip.default.lookup(ip);
     
     if (geo && geo.ll && geo.ll.length === 2) {
       const [latitude, longitude] = geo.ll;

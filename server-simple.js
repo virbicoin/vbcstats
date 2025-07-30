@@ -355,7 +355,7 @@ setInterval(() => {
     const nodesData = allNodes.map(node => ({
       id: node.id,
       name: node.info?.name || node.id,
-      type: node.info?.type || 'unknown',
+      type: node.info?.type || node.info?.client || 'unknown',
       info: node.info || {}, // Include the info object for client access
       geo: node.geo || null, // Include geo information
       latitude: node.latitude || null, // Include latitude from geoip
@@ -372,7 +372,12 @@ setInterval(() => {
       lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
       propagation: node.stats?.block?.propagation || 0,
       propagationAvg: node.stats?.propagationAvg || 0,
-      uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+      uptime: node.stats?.uptime ? 
+        (typeof node.stats.uptime === 'number' ? 
+          { lastStatus: node.stats.uptime } : 
+          node.stats.uptime
+        ) : 
+        (node.uptime || { up: 0, down: 0, lastStatus: 100 })
     }));
     
     const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
@@ -482,8 +487,20 @@ apiPrimus.on('connection', (spark) => {
             longitude: addedNode.longitude,
             active: addedNode.stats?.active,
             statsExists: !!addedNode.stats,
-            blockNumber: addedNode.stats?.block?.number
+            blockNumber: addedNode.stats?.block?.number,
+            infoType: addedNode.info?.type,
+            infoClient: addedNode.info?.client,
+            infoNode: addedNode.info?.node
           });
+          
+          // Set default client type if not provided
+          if (!addedNode.info) {
+            addedNode.info = {};
+          }
+          if (!addedNode.info.type && !addedNode.info.client) {
+            addedNode.info.client = 'gvbc/v1.0.0'; // Default client type
+            addedNode.info.type = 'ethereum';
+          }
           
           // Initialize stats if not exists
           if (!addedNode.stats) {
@@ -507,7 +524,7 @@ apiPrimus.on('connection', (spark) => {
         const nodesData = allNodes.map(node => ({
           id: node.id,
           name: node.info?.name || node.id,
-          type: node.info?.type || 'unknown',
+          type: node.info?.type || node.info?.client || 'unknown',
           info: node.info || {}, // Include the info object for client access
           geo: node.geo || null, // Include geo information
           latitude: node.latitude || null, // Include latitude from geoip
@@ -524,7 +541,12 @@ apiPrimus.on('connection', (spark) => {
           lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
           propagation: node.stats?.block?.propagation || 0,
           propagationAvg: node.stats?.propagationAvg || 0,
-          uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+          uptime: node.stats?.uptime ? 
+            (typeof node.stats.uptime === 'number' ? 
+              { lastStatus: node.stats.uptime } : 
+              node.stats.uptime
+            ) : 
+            (node.uptime || { up: 0, down: 0, lastStatus: 100 })
         }));
         
                 // Calculate network statistics based on actual node data and history
@@ -735,7 +757,7 @@ apiPrimus.on('connection', (spark) => {
             nodes: allNodes.map(node => ({
               id: node.id,
               name: node.info?.name || node.id,
-              type: node.info?.type || 'unknown',
+              type: node.info?.type || node.info?.client || 'unknown',
               info: node.info || {}, // Include the info object for client access
               geo: node.geo || null, // Include geo information
               latitude: node.latitude || null, // Include latitude from geoip
@@ -752,7 +774,12 @@ apiPrimus.on('connection', (spark) => {
               lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
               propagation: node.stats?.block?.propagation || 0,
               propagationAvg: node.stats?.propagationAvg || 0,
-              uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+              uptime: node.stats?.uptime ? 
+                (typeof node.stats.uptime === 'number' ? 
+                  { lastStatus: node.stats.uptime } : 
+                  node.stats.uptime
+                ) : 
+                (node.uptime || { up: 0, down: 0, lastStatus: 100 })
             })), 
             stats: updatedStats 
           }});
@@ -840,7 +867,7 @@ apiPrimus.on('connection', (spark) => {
             nodes: allNodes.map(node => ({
               id: node.id,
               name: node.info?.name || node.id,
-              type: node.info?.type || 'unknown',
+              type: node.info?.type || node.info?.client || 'unknown',
               info: node.info || {}, // Include the info object for client access
               geo: node.geo || null, // Include geo information
               latitude: node.latitude || null, // Include latitude from geoip
@@ -857,7 +884,12 @@ apiPrimus.on('connection', (spark) => {
               lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
               propagation: node.stats?.block?.propagation || 0,
               propagationAvg: node.stats?.propagationAvg || 0,
-              uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+              uptime: node.stats?.uptime ? 
+                (typeof node.stats.uptime === 'number' ? 
+                  { lastStatus: node.stats.uptime } : 
+                  node.stats.uptime
+                ) : 
+                (node.uptime || { up: 0, down: 0, lastStatus: 100 })
             })), 
             stats: updatedStats 
           }});
@@ -932,7 +964,7 @@ clientPrimus.on('connection', (spark) => {
     const nodesData = allNodes.map(node => ({
       id: node.id,
       name: node.info?.name || node.id,
-      type: node.info?.type || 'unknown',
+      type: node.info?.type || node.info?.client || 'unknown',
       info: node.info || {}, // Include the info object for client access
       geo: node.geo || null, // Include geo information
       latitude: node.latitude || null, // Include latitude from geoip
@@ -949,7 +981,12 @@ clientPrimus.on('connection', (spark) => {
       lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
       propagation: node.stats?.block?.propagation || 0,
       propagationAvg: node.stats?.propagationAvg || 0,
-      uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+      uptime: node.stats?.uptime ? 
+        (typeof node.stats.uptime === 'number' ? 
+          { lastStatus: node.stats.uptime } : 
+          node.stats.uptime
+        ) : 
+        (node.uptime || { up: 0, down: 0, lastStatus: 100 })
     }));
     
     // Calculate network statistics from actual data
@@ -986,7 +1023,7 @@ clientPrimus.on('connection', (spark) => {
   const nodesInit = allNodesInit.map(node => ({
     id: node.id,
     name: node.info?.name || node.id,
-    type: node.info?.type || 'unknown',
+    type: node.info?.type || node.info?.client || 'unknown',
     latency: node.stats?.latency || 0,
     mining: node.stats?.mining || false,
     peers: node.stats?.peers || 0,
@@ -999,7 +1036,12 @@ clientPrimus.on('connection', (spark) => {
     lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
     propagation: node.stats?.block?.propagation || 0,
     propagationAvg: node.stats?.propagationAvg || 0,
-    uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+    uptime: node.stats?.uptime ? 
+      (typeof node.stats.uptime === 'number' ? 
+        { lastStatus: node.stats.uptime } : 
+        node.stats.uptime
+      ) : 
+      (node.uptime || { up: 0, down: 0, lastStatus: 100 })
   }));
   
     // Calculate network statistics from actual data using calculation functions
@@ -1136,7 +1178,7 @@ setInterval(() => {
   const nodesData = allNodes.map(node => ({
     id: node.id,
     name: node.info?.name || node.id,
-    type: node.info?.type || 'unknown',
+    type: node.info?.type || node.info?.client || 'unknown',
     geo: node.geo || null, // Include geo information
     latitude: node.latitude || null, // Include latitude from geoip
     longitude: node.longitude || null, // Include longitude from geoip
@@ -1152,7 +1194,12 @@ setInterval(() => {
     lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
     propagation: node.stats?.block?.propagation || 0,
     propagationAvg: node.stats?.propagationAvg || 0,
-    uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+    uptime: node.stats?.uptime ? 
+      (typeof node.stats.uptime === 'number' ? 
+        { lastStatus: node.stats.uptime } : 
+        node.stats.uptime
+      ) : 
+      (node.uptime || { up: 0, down: 0, lastStatus: 100 })
   }));
   
   // Calculate network statistics from actual data

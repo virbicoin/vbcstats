@@ -15,3 +15,5 @@ stats.json
 .next
 .vscode
 next-env.d.ts
+.env*
+tsconfig.tsbuildinfo

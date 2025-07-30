@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { FaCube, FaLayerGroup, FaClock, FaStopwatch, FaSignal, FaHashtag, FaUsers, FaMoneyBillWave } from "react-icons/fa";
 import dynamic from "next/dynamic";
 
@@ -9,12 +9,6 @@ import dynamic from "next/dynamic";
 //   emit: (event: string, data?: unknown) => void;
 //   write: (data: unknown) => void;
 // };
-
-// Map component for node visualization
-const Map = dynamic(() => import('./Map'), {
-  loading: () => <div className="w-full h-full bg-[#111] border border-[#222] flex items-center justify-center"><p className="text-gray-400">Loading Map...</p></div>,
-  ssr: false,
-});
 
 const Charts = dynamic(() => import('./components/Charts').then(mod => ({ default: mod.default })), {
   loading: () => <div className="w-full h-full bg-gray-800 rounded flex items-center justify-center"><p className="text-gray-400">Loading Chart...</p></div>,
@@ -103,35 +97,76 @@ function HomePage() {
   const [pageLatency, setPageLatency] = useState<number>(0);
   const [latencyRetryCount, setLatencyRetryCount] = useState<number>(0);
   const [lastValidLatency, setLastValidLatency] = useState<number>(0);
+  
+  // Store node coordinates persistently to prevent position changes
+  const nodeCoordinatesRef = useRef(new globalThis.Map<string | number, { latitude: number; longitude: number }>());
 
-  // Function to add random coordinates to nodes if they don't have them
+  // Function to add stable coordinates to nodes based on their ID
   const addCoordinatesToNodes = (nodesList: Node[]): Node[] => {
     return nodesList.map(node => {
-      if (!node.latitude || !node.longitude) {
-        // Generate random coordinates for demonstration
-        // You can replace this with actual geolocation data
-        const cityCoordinates = [
-          { lat: 35.6762, lng: 139.6503 }, // Tokyo
-          { lat: 40.7128, lng: -74.0060 }, // New York
-          { lat: 51.5074, lng: -0.1278 },  // London
-          { lat: 48.8566, lng: 2.3522 },   // Paris
-          { lat: 52.5200, lng: 13.4050 },  // Berlin
-          { lat: 37.7749, lng: -122.4194 }, // San Francisco
-          { lat: 55.7558, lng: 37.6176 },  // Moscow
-          { lat: 22.3193, lng: 114.1694 }, // Hong Kong
-          { lat: 1.3521, lng: 103.8198 },  // Singapore
-          { lat: -33.8688, lng: 151.2093 }, // Sydney
-        ];
-        
-        const randomCity = cityCoordinates[Math.floor(Math.random() * cityCoordinates.length)];
-        
+      // If node already has coordinates from server, use them
+      if (node.latitude && node.longitude) {
+        // Store in persistent map for future reference
+        nodeCoordinatesRef.current.set(node.id, { 
+          latitude: node.latitude, 
+          longitude: node.longitude 
+        });
+        return node;
+      }
+      
+      // Check if we have stored coordinates for this node
+      const storedCoords = nodeCoordinatesRef.current.get(node.id);
+      if (storedCoords) {
         return {
           ...node,
-          latitude: randomCity.lat + (Math.random() - 0.5) * 10, // Add some variation
-          longitude: randomCity.lng + (Math.random() - 0.5) * 10,
+          latitude: storedCoords.latitude,
+          longitude: storedCoords.longitude,
         };
       }
-      return node;
+      
+      // Generate new stable coordinates based on node ID
+      const cityCoordinates = [
+        { lat: 35.6762, lng: 139.6503 }, // Tokyo
+        { lat: 40.7128, lng: -74.0060 }, // New York
+        { lat: 51.5074, lng: -0.1278 },  // London
+        { lat: 48.8566, lng: 2.3522 },   // Paris
+        { lat: 52.5200, lng: 13.4050 },  // Berlin
+        { lat: 37.7749, lng: -122.4194 }, // San Francisco
+        { lat: 55.7558, lng: 37.6176 },  // Moscow
+        { lat: 22.3193, lng: 114.1694 }, // Hong Kong
+        { lat: 1.3521, lng: 103.8198 },  // Singapore
+        { lat: -33.8688, lng: 151.2093 }, // Sydney
+      ];
+      
+      // Create a simple hash from node ID for consistent positioning
+      const nodeIdString = String(node.id);
+      let hash = 0;
+      for (let i = 0; i < nodeIdString.length; i++) {
+        const char = nodeIdString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      
+      // Use hash to select city and create consistent variation
+      const cityIndex = Math.abs(hash) % cityCoordinates.length;
+      const selectedCity = cityCoordinates[cityIndex];
+      
+      // Create consistent variation based on hash
+      const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 10; // -5 to +5 degrees
+      const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 10; // -5 to +5 degrees
+      
+      const newCoords = {
+        latitude: selectedCity.lat + latVariation,
+        longitude: selectedCity.lng + lngVariation,
+      };
+      
+      // Store coordinates for future use
+      nodeCoordinatesRef.current.set(node.id, newCoords);
+      
+      return {
+        ...node,
+        ...newCoords,
+      };
     });
   };
 
@@ -544,19 +579,6 @@ function HomePage() {
         {/* Charts and Visualizations */}
         <div className="mb-8">
           <Charts currentStats={stats} nodes={nodes} />
-        </div>
-
-        {/* World Map */}
-        <div className="mb-8">
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <span>🌍</span>
-              Node Network Map
-            </h2>
-            <div className="h-96">
-              <Map nodes={nodes} />
-            </div>
-          </div>
         </div>
 
         {/* Nodes Table */}

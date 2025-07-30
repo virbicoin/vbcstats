@@ -1,7 +1,10 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { FaCube, FaLayerGroup, FaClock, FaStopwatch, FaSignal, FaHashtag, FaUsers, FaMoneyBillWave } from "react-icons/fa";
 import dynamic from "next/dynamic";
+
+// GeoIP-lite import for server-side IP geolocation
+// Note: This will only work on the server side, so we'll use a different approach for client-side
 
 // 型定義ファイルがないモジュールの宣言（未使用）
 // declare const Primus: new (url: string) => {
@@ -100,10 +103,80 @@ function HomePage() {
   
   // Store node coordinates persistently to prevent position changes
   const nodeCoordinatesRef = useRef(new globalThis.Map<string | number, { latitude: number; longitude: number }>());
+  // Store IP to coordinates cache to avoid repeated API calls
+  const ipCoordinatesCache = useRef(new globalThis.Map<string, { latitude: number; longitude: number; timestamp: number }>());
 
-  // Function to add stable coordinates to nodes based on their ID
-  const addCoordinatesToNodes = (nodesList: Node[]): Node[] => {
-    return nodesList.map(node => {
+  // Function to extract IP address from node name or ID
+  const extractIPFromNode = (node: Node): string | null => {
+    // Try to extract IP from node name first
+    if (node.name) {
+      const ipRegex = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
+      const match = node.name.match(ipRegex);
+      if (match) return match[1];
+    }
+    
+    // Try to extract IP from node ID if it's a string
+    if (typeof node.id === 'string') {
+      const ipRegex = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
+      const match = node.id.match(ipRegex);
+      if (match) return match[1];
+    }
+    
+    return null;
+  };
+
+  // Function to get coordinates from IP using GeoIP-lite via API endpoint
+  const getCoordinatesFromIP = async (ip: string): Promise<{ latitude: number; longitude: number } | null> => {
+    try {
+      // Check cache first (cache for 24 hours)
+      const cached = ipCoordinatesCache.current.get(ip);
+      const now = Date.now();
+      if (cached && (now - cached.timestamp) < 24 * 60 * 60 * 1000) {
+        console.log(`Using cached coordinates for IP ${ip}:`, cached.latitude, cached.longitude);
+        return { latitude: cached.latitude, longitude: cached.longitude };
+      }
+
+      // Skip private IP addresses
+      const privateIpRegex = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|0\.0\.0\.0|255\.255\.255\.255)/;
+      if (privateIpRegex.test(ip)) {
+        console.log(`Skipping private IP address: ${ip}`);
+        return null;
+      }
+
+      // Make API request to our GeoIP endpoint
+      const response = await fetch(`/api/geoip?ip=${encodeURIComponent(ip)}`);
+      if (!response.ok) {
+        console.warn(`GeoIP API request failed for ${ip}:`, response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      if (data.latitude !== undefined && data.longitude !== undefined && 
+          !isNaN(data.latitude) && !isNaN(data.longitude)) {
+        const coords = { latitude: data.latitude, longitude: data.longitude };
+        // Cache the result
+        ipCoordinatesCache.current.set(ip, {
+          ...coords,
+          timestamp: now
+        });
+        console.log(`Got coordinates from GeoIP for ${ip} (${data.city}, ${data.country}):`, data.latitude, data.longitude);
+        return coords;
+      }
+      
+      console.warn(`Invalid location data from GeoIP for ${ip}:`, data);
+      return null;
+    } catch (error) {
+      console.error(`Error fetching coordinates for IP ${ip}:`, error);
+      return null;
+    }
+  };
+
+  // Function to add stable coordinates to nodes based on their IP or ID
+  const addCoordinatesToNodes = useCallback(async (nodesList: Node[]): Promise<Node[]> => {
+    console.log('Processing nodes for coordinates:', nodesList.length, 'nodes');
+    console.log('Current stored coordinates count:', nodeCoordinatesRef.current.size);
+    
+    const processedNodes = await Promise.all(nodesList.map(async (node) => {
       // If node already has coordinates from server, use them
       if (node.latitude && node.longitude) {
         // Store in persistent map for future reference
@@ -111,12 +184,14 @@ function HomePage() {
           latitude: node.latitude, 
           longitude: node.longitude 
         });
+        console.log(`Node ${node.id} (${node.name}) has server coordinates:`, node.latitude, node.longitude);
         return node;
       }
       
       // Check if we have stored coordinates for this node
       const storedCoords = nodeCoordinatesRef.current.get(node.id);
       if (storedCoords) {
+        console.log(`Node ${node.id} (${node.name}) using stored coordinates:`, storedCoords.latitude, storedCoords.longitude);
         return {
           ...node,
           latitude: storedCoords.latitude,
@@ -124,7 +199,26 @@ function HomePage() {
         };
       }
       
-      // Generate new stable coordinates based on node ID
+      // Try to get coordinates from IP address
+      const ip = extractIPFromNode(node);
+      if (ip) {
+        try {
+          const coords = await getCoordinatesFromIP(ip);
+          if (coords) {
+            // Store coordinates for future use
+            nodeCoordinatesRef.current.set(node.id, coords);
+            console.log(`Node ${node.id} (${node.name}) got GeoIP-based coordinates for ${ip}:`, coords.latitude, coords.longitude);
+            return {
+              ...node,
+              ...coords,
+            };
+          }
+        } catch (error) {
+          console.error(`Failed to get coordinates for IP ${ip}:`, error);
+        }
+      }
+      
+      // Fallback: Generate stable coordinates based on node ID
       const cityCoordinates = [
         { lat: 35.6762, lng: 139.6503 }, // Tokyo
         { lat: 40.7128, lng: -74.0060 }, // New York
@@ -152,8 +246,8 @@ function HomePage() {
       const selectedCity = cityCoordinates[cityIndex];
       
       // Create consistent variation based on hash
-      const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 10; // -5 to +5 degrees
-      const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 10; // -5 to +5 degrees
+      const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 2; // -1 to +1 degrees (smaller variation)
+      const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 2; // -1 to +1 degrees
       
       const newCoords = {
         latitude: selectedCity.lat + latVariation,
@@ -162,13 +256,16 @@ function HomePage() {
       
       // Store coordinates for future use
       nodeCoordinatesRef.current.set(node.id, newCoords);
+      console.log(`Node ${node.id} (${node.name}) generated fallback coordinates:`, newCoords.latitude, newCoords.longitude);
       
       return {
         ...node,
         ...newCoords,
       };
-    });
-  };
+    }));
+
+    return processedNodes;
+  }, []);
 
   // Last Block timer - increments every second
   useEffect(() => {
@@ -284,7 +381,7 @@ function HomePage() {
           setErrorStats('WebSocket disconnected - trying to reconnect...');
         });
 
-      primus.on('data', (message: unknown) => {
+      primus.on('data', async (message: unknown) => {
         const typedMessage = message as { 
           action?: string; 
           data?: {
@@ -298,7 +395,7 @@ function HomePage() {
         console.log('WebSocket data received:', typedMessage.action, typedMessage);
         if (typedMessage.action === 'init' && typedMessage.data) {
           console.log('Processing init data:', typedMessage.data);
-          const nodesWithCoords = addCoordinatesToNodes(typedMessage.data.nodes || []);
+          const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes || []);
           setNodes(nodesWithCoords);
           setStats(typedMessage.data.stats || {});
           setLoadingStats(false);
@@ -314,7 +411,7 @@ function HomePage() {
         } else if (typedMessage.action === 'block' && typedMessage.data) {
           // Handle block updates - refresh all data (both nodes and stats will be updated)
           if (typedMessage.data.nodes && typedMessage.data.stats) {
-            const nodesWithCoords = addCoordinatesToNodes(typedMessage.data.nodes);
+            const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes);
             setNodes(nodesWithCoords);
             setStats(typedMessage.data.stats);
             setLastBlockTime(0); // Reset timer on new block
@@ -327,7 +424,7 @@ function HomePage() {
         } else if (typedMessage.action === 'stats' && typedMessage.data) {
           // Handle stats updates - refresh all data
           if (typedMessage.data.nodes && typedMessage.data.stats) {
-            const nodesWithCoords = addCoordinatesToNodes(typedMessage.data.nodes);
+            const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes);
             setNodes(nodesWithCoords);
             setStats(typedMessage.data.stats);
           } else if (typedMessage.data.id && typedMessage.data.stats) {
@@ -423,7 +520,7 @@ function HomePage() {
       }
     };
    
-  }, []);
+  }, [addCoordinatesToNodes]);
 
   const statCards = [
     { id: 'bestBlock', icon: <FaCube className="text-blue-400" />, label: "Best Block" },

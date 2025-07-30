@@ -106,13 +106,21 @@ function HomePage() {
   // Store IP to coordinates cache to avoid repeated API calls
   const ipCoordinatesCache = useRef(new globalThis.Map<string, { latitude: number; longitude: number; timestamp: number }>());
 
-  // Function to extract IP address from node name or ID
+  // Function to extract IP address from node name or ID (based on original vbcstats implementation)
   const extractIPFromNode = (node: Node): string | null => {
-    // Try to extract IP from node name first
-    if (node.name) {
+    // Check if node info contains IP directly
+    if (node.name && typeof node.name === 'string') {
+      // First try to extract from node name
       const ipRegex = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
       const match = node.name.match(ipRegex);
       if (match) return match[1];
+      
+      // Try to extract from hostname format like "node-123.456.789.012"
+      const hostnameRegex = /node[.-](\d{1,3})[.-](\d{1,3})[.-](\d{1,3})[.-](\d{1,3})/i;
+      const hostnameMatch = node.name.match(hostnameRegex);
+      if (hostnameMatch) {
+        return `${hostnameMatch[1]}.${hostnameMatch[2]}.${hostnameMatch[3]}.${hostnameMatch[4]}`;
+      }
     }
     
     // Try to extract IP from node ID if it's a string
@@ -122,10 +130,24 @@ function HomePage() {
       if (match) return match[1];
     }
     
+    // Look for any IP-like patterns in other node properties
+    const nodeStr = JSON.stringify(node);
+    const ipRegex = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g;
+    const matches = nodeStr.match(ipRegex);
+    if (matches && matches.length > 0) {
+      // Return the first valid-looking IP address
+      for (const ip of matches) {
+        const parts = ip.split('.');
+        if (parts.every(part => parseInt(part) <= 255)) {
+          return ip;
+        }
+      }
+    }
+    
     return null;
   };
 
-  // Function to get coordinates from IP using GeoIP-lite via API endpoint
+  // Function to get coordinates from IP using direct geoip-lite call via API
   const getCoordinatesFromIP = async (ip: string): Promise<{ latitude: number; longitude: number } | null> => {
     try {
       // Check cache first (cache for 24 hours)
@@ -136,17 +158,22 @@ function HomePage() {
         return { latitude: cached.latitude, longitude: cached.longitude };
       }
 
-      // Skip private IP addresses
+      // Skip private IP addresses and IPv6-mapped IPv4 addresses
+      let cleanIp = ip;
+      if (ip.substr(0, 7) === "::ffff:") {
+        cleanIp = ip.substr(7);
+      }
+      
       const privateIpRegex = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|0\.0\.0\.0|255\.255\.255\.255)/;
-      if (privateIpRegex.test(ip)) {
-        console.log(`Skipping private IP address: ${ip}`);
+      if (privateIpRegex.test(cleanIp)) {
+        console.log(`Skipping private IP address: ${cleanIp}`);
         return null;
       }
 
       // Make API request to our GeoIP endpoint
-      const response = await fetch(`/api/geoip?ip=${encodeURIComponent(ip)}`);
+      const response = await fetch(`/api/geoip?ip=${encodeURIComponent(cleanIp)}`);
       if (!response.ok) {
-        console.warn(`GeoIP API request failed for ${ip}:`, response.status);
+        console.warn(`GeoIP API request failed for ${cleanIp}:`, response.status);
         return null;
       }
 
@@ -159,11 +186,11 @@ function HomePage() {
           ...coords,
           timestamp: now
         });
-        console.log(`Got coordinates from GeoIP for ${ip} (${data.city}, ${data.country}):`, data.latitude, data.longitude);
+        console.log(`Got coordinates from GeoIP for ${cleanIp} (${data.city || 'Unknown'}, ${data.country || 'Unknown'}):`, data.latitude, data.longitude);
         return coords;
       }
       
-      console.warn(`Invalid location data from GeoIP for ${ip}:`, data);
+      console.warn(`Invalid location data from GeoIP for ${cleanIp}:`, data);
       return null;
     } catch (error) {
       console.error(`Error fetching coordinates for IP ${ip}:`, error);

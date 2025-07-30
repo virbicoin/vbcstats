@@ -10,9 +10,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_WS_PORT: process.env['PORT_SERVER'] || '5000',
   },
   // Disable HTTP/2 for compatibility
-  experimental: {
-    serverComponentsExternalPackages: [],
-  },
+  serverExternalPackages: [],
   // Output configuration for production
   ...(process.env.NODE_ENV === 'production' && { output: 'standalone' as const }),
   // Proxy websocket and API endpoints to backend server (development only)

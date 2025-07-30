@@ -78,8 +78,13 @@ interface NodesProps {
   bestBlock?: number;
 }
 
+type SortField = 'name' | 'type' | 'latency' | 'mining' | 'peers' | 'pending' | 'block' | 'hash' | 'difficulty' | 'transactions' | 'uncles' | 'blockTime' | 'propagation' | 'avgPropagation' | 'uptime';
+type SortDirection = 'asc' | 'desc';
+
 const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   const [pinnedNodes, setPinnedNodes] = useState<Set<string | number>>(new Set());
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Toggle pin status for a node
   const togglePin = (nodeId: string | number) => {
@@ -94,17 +99,108 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
     });
   };
 
-  // Sort nodes with pinned ones first
+  // Handle column header click for sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Get sort value for a node
+  const getSortValue = (node: Node, field: SortField): string | number => {
+    switch (field) {
+      case 'name':
+        return (node.info?.name || node.name).toLowerCase();
+      case 'type':
+        return (node.info?.node || '').toLowerCase();
+      case 'latency':
+        return node.stats?.latency ?? (typeof node.latency === 'object' ? parseInt(node.latency?.latency || '0') : (node.latency ? parseInt(String(node.latency)) : 0));
+      case 'mining':
+        return (node.stats?.mining ?? node.mining) ? 1 : 0;
+      case 'peers':
+        const peers = node.stats?.peers ?? node.peers ?? 0;
+        return typeof peers === 'object' && peers !== null && 'value' in peers ? (peers as { value: number }).value ?? 0 : (typeof peers === 'number' ? peers : 0);
+      case 'pending':
+        const pending = node.stats?.pending ?? node.pending ?? 0;
+        return typeof pending === 'object' && pending !== null && 'value' in pending ? (pending as { value: number }).value ?? 0 : (typeof pending === 'number' ? pending : 0);
+      case 'block':
+        const blockNumber = node.stats?.block?.number ?? node.block ?? 0;
+        return typeof blockNumber === 'object' && blockNumber !== null && 'value' in blockNumber ? (blockNumber as { value: number }).value ?? 0 : (typeof blockNumber === 'number' ? blockNumber : 0);
+      case 'hash':
+        return (node.stats?.block?.hash ?? node.blockHash ?? '').toLowerCase();
+      case 'difficulty':
+        return node.stats?.block?.totalDifficulty ?? node.totalDifficulty ?? 0;
+      case 'transactions':
+        const transactions = node.stats?.block?.transactions ?? node.transactions ?? 0;
+        if (Array.isArray(transactions)) return transactions.length;
+        return typeof transactions === 'object' && transactions !== null && 'value' in transactions ? (transactions as { value: number }).value ?? 0 : (typeof transactions === 'number' ? transactions : 0);
+      case 'uncles':
+        const uncles = node.stats?.block?.uncles ?? node.uncles ?? 0;
+        if (Array.isArray(uncles)) return uncles.length;
+        return typeof uncles === 'object' && uncles !== null && 'value' in uncles ? (uncles as { value: number }).value ?? 0 : (typeof uncles === 'number' ? uncles : 0);
+      case 'blockTime':
+        return typeof node.lastBlockTime === 'number' ? node.lastBlockTime : 0;
+      case 'propagation':
+        return Number(node.stats?.block?.propagation || node.propagation || 0);
+      case 'avgPropagation':
+        return Number(node.stats?.propagationAvg || node.propagationAvg || 0);
+      case 'uptime':
+        const uptimeValue = node.stats?.uptime ?? node.uptime;
+        if (typeof uptimeValue === 'object' && uptimeValue !== null) {
+          if (uptimeValue.lastStatus !== undefined) {
+            return uptimeValue.lastStatus;
+          }
+          if (uptimeValue.up !== undefined && uptimeValue.down !== undefined) {
+            const total = uptimeValue.up + uptimeValue.down;
+            return total > 0 ? (uptimeValue.up / total) * 100 : 0;
+          }
+          return 100;
+        }
+        return typeof uptimeValue === 'number' ? uptimeValue : 0;
+      default:
+        return 0;
+    }
+  };
+
+  // Sort nodes with pinned ones first, then by selected field
   const sortedNodes = useMemo(() => {
-    return [...nodes].sort((a, b) => {
+    const sorted = [...nodes].sort((a, b) => {
       const aIsPinned = pinnedNodes.has(a.id);
       const bIsPinned = pinnedNodes.has(b.id);
       
+      // Pinned nodes always come first
       if (aIsPinned && !bIsPinned) return -1;
       if (!aIsPinned && bIsPinned) return 1;
+      
+      // If no sort field is selected, maintain original order
+      if (!sortField) return 0;
+      
+      // Sort by selected field
+      const aValue = getSortValue(a, sortField);
+      const bValue = getSortValue(b, sortField);
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [nodes, pinnedNodes]);
+    
+    return sorted;
+  }, [nodes, pinnedNodes, sortField, sortDirection]);
+
+  // Render sort indicator
+  const renderSortIndicator = (field: SortField) => {
+    if (sortField !== field) {
+      return <span className="text-gray-500 ml-1">↕️</span>;
+    }
+    return (
+      <span className="text-blue-400 ml-1">
+        {sortDirection === 'asc' ? '↑' : '↓'}
+      </span>
+    );
+  };
 
   // Helper functions for styling classes
   const getNodeClass = (node: Node) => {
@@ -383,21 +479,141 @@ const formatTotalDifficulty = (value: number | undefined): string => {
           <thead>
             <tr className="text-gray-400 border-b border-gray-700">
               <th className="text-left p-2 w-8">📌</th>
-              <th className="text-left p-2 w-36">Node Name</th>
-              <th className="text-left p-2 w-56">Node Type</th>
-              <th className="text-left p-2 w-20">Latency</th>
-              <th className="text-left p-2 w-16">Mining</th>
-              <th className="text-left p-2 w-16">Peers</th>
-              <th className="text-left p-2 w-20">Pending</th>
-              <th className="text-left p-2 w-20">Last Block</th>
-              <th className="text-left p-2 w-20">Block Hash</th>
-              <th className="text-left p-2 w-24">Total Difficulty</th>
-              <th className="text-left p-2 w-16">Txs</th>
-              <th className="text-left p-2 w-16">Uncles</th>
-              <th className="text-left p-2 w-24">Block Time</th>
-              <th className="text-left p-2 w-24">Propagation</th>
-              <th className="text-left p-2 w-24">Avg Propagation</th>
-              <th className="text-left p-2 w-16">Uptime</th>
+              <th className="text-left p-2 w-36">
+                <button 
+                  onClick={() => handleSort('name')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Node Name
+                  {renderSortIndicator('name')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-56">
+                <button 
+                  onClick={() => handleSort('type')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Node Type
+                  {renderSortIndicator('type')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-20">
+                <button 
+                  onClick={() => handleSort('latency')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Latency
+                  {renderSortIndicator('latency')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-16">
+                <button 
+                  onClick={() => handleSort('mining')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Mining
+                  {renderSortIndicator('mining')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-16">
+                <button 
+                  onClick={() => handleSort('peers')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Peers
+                  {renderSortIndicator('peers')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-20">
+                <button 
+                  onClick={() => handleSort('pending')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Pending
+                  {renderSortIndicator('pending')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-20">
+                <button 
+                  onClick={() => handleSort('block')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Last Block
+                  {renderSortIndicator('block')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-20">
+                <button 
+                  onClick={() => handleSort('hash')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Block Hash
+                  {renderSortIndicator('hash')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-24">
+                <button 
+                  onClick={() => handleSort('difficulty')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Total Difficulty
+                  {renderSortIndicator('difficulty')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-16">
+                <button 
+                  onClick={() => handleSort('transactions')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Txs
+                  {renderSortIndicator('transactions')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-16">
+                <button 
+                  onClick={() => handleSort('uncles')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Uncles
+                  {renderSortIndicator('uncles')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-24">
+                <button 
+                  onClick={() => handleSort('blockTime')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Block Time
+                  {renderSortIndicator('blockTime')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-24">
+                <button 
+                  onClick={() => handleSort('propagation')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Propagation
+                  {renderSortIndicator('propagation')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-24">
+                <button 
+                  onClick={() => handleSort('avgPropagation')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Avg Propagation
+                  {renderSortIndicator('avgPropagation')}
+                </button>
+              </th>
+              <th className="text-left p-2 w-16">
+                <button 
+                  onClick={() => handleSort('uptime')}
+                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  Uptime
+                  {renderSortIndicator('uptime')}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>

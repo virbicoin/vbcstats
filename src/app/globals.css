@@ -1,8 +1,5 @@
 @import "tailwindcss";
 
-/* Global styles */
-@import "tailwindcss";
-
 /* Custom animations for new blocks */
 @keyframes newBlockFlash {
   0% {
@@ -68,8 +65,7 @@ a:hover {
 /* Custom styles adapted from VirBiCoin Pool */
 @layer base {
   body {
-    padding-top: 0;
-    margin-bottom: 0;
+    padding: 0 auto;
   }
 
   h1,
@@ -135,11 +131,8 @@ td.propagation-inactive {
 /* Custom container for large screens */
 .container-full {
   width: 100%;
-  max-width: 1920px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 @media (min-width: 1536px) {
@@ -157,7 +150,7 @@ td.propagation-inactive {
 
 /* Header and Footer wrapper with max-width */
 .header-footer-wrapper {
-  max-width: 1920px;
+  max-width: 100%;
   margin: 0 auto;
   width: 100%;
 }

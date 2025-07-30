@@ -686,9 +686,37 @@ const formatTotalDifficulty = (value: number | undefined): string => {
                   <td className="p-2">
                     {(() => {
                       const pending = node.stats?.pending ?? node.pending ?? 0;
-                      return typeof pending === 'object' && pending !== null && 'value' in pending 
-                        ? (pending as { value: number }).value ?? 0 
-                        : (typeof pending === 'number' ? pending : 0);
+                      
+                      // Debug logging for pending values
+                      if (pending && typeof pending === 'object') {
+                        console.log('Pending object:', pending, 'Keys:', Object.keys(pending), 'Has value:', 'value' in pending);
+                      }
+                      
+                      // Handle object with value property
+                      if (typeof pending === 'object' && pending !== null && 'value' in pending) {
+                        return (pending as { value: number }).value ?? 0;
+                      }
+                      
+                      // Handle direct number
+                      if (typeof pending === 'number') {
+                        return pending;
+                      }
+                      
+                      // Handle string that might be a number
+                      if (typeof pending === 'string') {
+                        const num = parseInt(pending, 10);
+                        return isNaN(num) ? 0 : num;
+                      }
+                      
+                      // For any other object type, try to convert to string first, then number
+                      if (typeof pending === 'object' && pending !== null) {
+                        const str = String(pending);
+                        const num = parseInt(str, 10);
+                        return isNaN(num) ? 0 : num;
+                      }
+                      
+                      // Default fallback
+                      return 0;
                     })()}
                   </td>
                   <td className={`p-2 ${getBlockClass(node, bestBlock)}`}>

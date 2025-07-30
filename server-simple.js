@@ -102,7 +102,7 @@ function getNodeIP(spark) {
   
   return null;
 }
-const MAX_BLOCK_HISTORY = 50; // Keep last 50 blocks for calculation
+const MAX_BLOCK_HISTORY = 200; // Keep last 200 blocks for calculation
 
 // Node-specific block tracking for propagation calculation (like GitHub implementation)
 let nodeBlockHistory = new Map(); // nodeId -> Map(blockNumber -> arrivalTime)
@@ -224,8 +224,8 @@ function calculateAvgBlockTime(nodes) {
     return defaultBlockTime;
   }
   
-  // Take the last 10 blocks (or less if not available)
-  const recentBlocks = blockHistory.slice(0, Math.min(10, blockHistory.length));
+  // Take the last 50 blocks (or less if not available) for more accurate average
+  const recentBlocks = blockHistory.slice(0, Math.min(50, blockHistory.length));
   
   if (recentBlocks.length < 2) {
     return defaultBlockTime;
@@ -243,8 +243,8 @@ function calculateAvgBlockTime(nodes) {
     if (currentBlock.number === previousBlock.number + 1) {
       const timeDiff = (currentBlock.timestamp - previousBlock.timestamp) / 1000; // Convert to seconds
       
-      // Only accept reasonable block times (between 1 and 120 seconds)
-      if (timeDiff > 1 && timeDiff < 120) {
+      // Only accept reasonable block times (between 0.5 and 300 seconds)
+      if (timeDiff > 0.5 && timeDiff < 300) {
         totalTimeDiff += timeDiff;
         validDiffs++;
       }
@@ -256,7 +256,7 @@ function calculateAvgBlockTime(nodes) {
   }
   
   const avgBlockTime = totalTimeDiff / validDiffs;
-  const result = Math.max(1, Math.min(60, Math.round(avgBlockTime * 100) / 100));
+  const result = Math.max(0.5, Math.min(120, Math.round(avgBlockTime * 100) / 100));
   
   return result;
 }

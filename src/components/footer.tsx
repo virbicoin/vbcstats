@@ -9,7 +9,6 @@ import {
 
 const Footer = () => {
   return (
-        <div className="header-footer-wrapper">
         <footer className='bg-gray-900 border-t border-gray-800'>
           <div className='container-full mx-auto px-2 py-2 flex items-center justify-center text-gray-400'>
             <div className='space-x-2 text-sm flex items-center'>
@@ -38,7 +37,6 @@ const Footer = () => {
             </div>
           </div>
         </footer>
-        </div>
   );
 }
 

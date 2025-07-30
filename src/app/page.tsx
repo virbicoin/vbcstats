@@ -78,15 +78,6 @@ interface StatsData {
 //   return String(value);
 // };
 
-const formatNumber = (value: number): string => {
-  if (value === 0) return '0.00';
-  if (value < 1) return value.toFixed(6);
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-};
-
 // Convert wei to gwei (divide by 1e9)
 const weiToGwei = (wei: number): number => {
   return wei / 1000000000;
@@ -104,6 +95,13 @@ const formatLargeNumber = (value: number): string => {
   return value.toLocaleString();
 };
 
+// Get color class for Last Block time based on elapsed seconds
+const getLastBlockTimeColor = (seconds: number): string => {
+  if (seconds <= 15) return 'text-white';
+  if (seconds <= 60) return 'text-orange-400';
+  return 'text-red-400';
+};
+
 function HomePage() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [stats, setStats] = useState<StatsData>({});
@@ -113,6 +111,9 @@ function HomePage() {
   const [pageLatency, setPageLatency] = useState<number>(0);
   const [latencyRetryCount, setLatencyRetryCount] = useState<number>(0);
   const [lastValidLatency, setLastValidLatency] = useState<number>(0);
+  
+  // Track the previous best block value to detect actual changes
+  const [prevBestBlock, setPrevBestBlock] = useState<number | null>(null);
   
   // Store node coordinates persistently to prevent position changes
   const nodeCoordinatesRef = useRef(new globalThis.Map<string | number, { latitude: number; longitude: number }>());
@@ -331,13 +332,17 @@ function HomePage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Reset last block time when new block arrives
-  useEffect(() => {
-    const bestBlockValue = stats['bestBlock']?.value;
-    if (bestBlockValue && typeof bestBlockValue === 'number' && bestBlockValue > 0) {
-      setLastBlockTime(0);
-    }
-  }, [stats]);
+  // Reset last block time when new block arrives - DISABLED (handled in WebSocket events)
+  // useEffect(() => {
+  //   const bestBlockValue = stats['bestBlock']?.value;
+  //   if (bestBlockValue && typeof bestBlockValue === 'number' && bestBlockValue > 0) {
+  //     // Only reset if bestBlock value actually changed
+  //     if (bestBlockValue !== prevBestBlock) {
+  //       setLastBlockTime(0);
+  //       setPrevBestBlock(bestBlockValue);
+  //     }
+  //   }
+  // }, [stats, prevBestBlock]);
 
   // Reset latency retry count periodically
   useEffect(() => {
@@ -445,46 +450,108 @@ function HomePage() {
             id?: string | number;
             serverTime?: number;
             latency?: number;
+            pending?: number;
           };
         };
-        console.log('WebSocket data received:', typedMessage.action, typedMessage);
         if (typedMessage.action === 'init' && typedMessage.data) {
-          console.log('Processing init data:', typedMessage.data);
           const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes || []);
           setNodes(nodesWithCoords);
-          setStats(typedMessage.data.stats || {});
+          
+          // Check if bestBlock changed before resetting timer
+          const newStats = typedMessage.data.stats || {};
+          const newBestBlock = newStats['bestBlock']?.value;
+          if (newBestBlock && typeof newBestBlock === 'number') {
+            if (prevBestBlock === null || newBestBlock !== prevBestBlock) {
+              setLastBlockTime(0); // Reset timer on new block or first init
+            }
+            setPrevBestBlock(newBestBlock); // Always update prevBestBlock during init
+          }
+          
+          setStats(newStats);
           setLoadingStats(false);
-          setLastBlockTime(0); // Reset timer on new data
-          console.log('Init data processed, nodes:', nodesWithCoords.length, 'stats keys:', Object.keys(typedMessage.data.stats || {}));
-        } else if (typedMessage.action === 'update' && typedMessage.data) {
-          // Update individual node stats but keep network stats
+          } else if (typedMessage.action === 'update' && typedMessage.data) {
+          // Update individual node stats but keep network stats and coordinates
+          // Do NOT process bestBlock changes in UPDATE actions
           if (typedMessage.data.id && typedMessage.data.stats) {
-            setNodes(prev => prev.map(node => 
-              node.id === typedMessage.data!.id ? { ...node, ...typedMessage.data } : node
-            ));
+            setNodes(prev => prev.map(node => {
+              if (node.id === typedMessage.data!.id) {
+                return { 
+                  ...node, 
+                  stats: typedMessage.data!.stats
+                  // Coordinates are preserved by spreading existing node
+                };
+              }
+              return node;
+            }));
           }
         } else if (typedMessage.action === 'block' && typedMessage.data) {
           // Handle block updates - refresh all data (both nodes and stats will be updated)
           if (typedMessage.data.nodes && typedMessage.data.stats) {
+            // Full block update with nodes and stats - this is the primary case for timer reset
             const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes);
             setNodes(nodesWithCoords);
+            
+            // Check if bestBlock changed before resetting timer
+            const newBestBlock = typedMessage.data.stats['bestBlock']?.value;
+            if (newBestBlock && typeof newBestBlock === 'number' && prevBestBlock !== null && newBestBlock !== prevBestBlock) {
+              setLastBlockTime(0); // Reset timer only on new block
+              setPrevBestBlock(newBestBlock);
+            }
+            
             setStats(typedMessage.data.stats);
-            setLastBlockTime(0); // Reset timer on new block
           } else if (typedMessage.data.id) {
-            setNodes(prev => prev.map(node => 
-              node.id === typedMessage.data!.id ? { ...node, ...typedMessage.data } : node
-            ));
-            setLastBlockTime(0); // Reset timer on new block
+            // Individual node update - preserve coordinates and do NOT process bestBlock
+            setNodes(prev => prev.map(node => {
+              if (node.id === typedMessage.data!.id) {
+                return { ...node, ...typedMessage.data };
+              }
+              return node;
+            }));
           }
         } else if (typedMessage.action === 'stats' && typedMessage.data) {
-          // Handle stats updates - refresh all data
-          if (typedMessage.data.nodes && typedMessage.data.stats) {
-            const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes);
-            setNodes(nodesWithCoords);
-            setStats(typedMessage.data.stats);
-          } else if (typedMessage.data.id && typedMessage.data.stats) {
+          // Handle stats updates - NEVER process bestBlock in stats action to prevent unwanted resets
+          
+          // Update individual node stats without changing coordinates
+          if (typedMessage.data.id && typedMessage.data.stats) {
             setNodes(prev => prev.map(node => 
-              node.id === typedMessage.data!.id ? { ...node, ...typedMessage.data!.stats } : node
+              node.id === typedMessage.data!.id ? { ...node, stats: typedMessage.data!.stats } : node
+            ));
+          }
+          
+          // For global stats updates, only update non-bestBlock stats
+          if (typedMessage.data.stats && !typedMessage.data.id) {
+            // Create a copy of stats without bestBlock to prevent interference
+            const statsWithoutBestBlock = { ...typedMessage.data.stats };
+            delete statsWithoutBestBlock['bestBlock'];
+            
+            // Only update non-bestBlock stats
+            setStats(prevStats => ({
+              ...prevStats,
+              ...statsWithoutBestBlock
+            }));
+          }
+        } else if (typedMessage.action === 'pending' && typedMessage.data) {
+          // Handle pending transaction updates - do NOT process bestBlock
+          
+          // Update individual node pending stats without changing coordinates or bestBlock
+          if (typedMessage.data.id) {
+            setNodes(prev => prev.map(node => 
+              node.id === typedMessage.data!.id ? { 
+                ...node, 
+                pending: typedMessage.data!.pending || 0 
+              } : node
+            ));
+          }
+        } else if (typedMessage.action === 'latency' && typedMessage.data) {
+          // Handle latency updates - do NOT process bestBlock
+          
+          // Update individual node latency without changing coordinates or bestBlock
+          if (typedMessage.data.id) {
+            setNodes(prev => prev.map(node => 
+              node.id === typedMessage.data!.id ? { 
+                ...node, 
+                latency: typedMessage.data!.latency || 0 
+              } : node
             ));
           }
         } else if (typedMessage.action === 'charts' && typedMessage.data) {
@@ -575,7 +642,7 @@ function HomePage() {
       }
     };
    
-  }, [addCoordinatesToNodes]);
+  }, [addCoordinatesToNodes, prevBestBlock, setPrevBestBlock]);
 
   const statCards = [
     { id: 'bestBlock', icon: <FaCube className="text-blue-400" />, label: "Best Block" },
@@ -621,9 +688,9 @@ function HomePage() {
         const difficulty = Number(stat.value);
         return `${(difficulty / 1e9).toFixed(2)} GH`;
       case 'gasPrice':
-        // Convert wei to gwei
+        // Convert wei to gwei and truncate decimal places for Gniku display
         const priceInGwei = weiToGwei(Number(stat.value));
-        return `${formatNumber(priceInGwei)} Gwei`;
+        return `${Math.floor(priceInGwei)} Gniku`;
       case 'bestBlock':
       case 'activeNodes':
         return Number(stat.value).toLocaleString();
@@ -649,7 +716,9 @@ function HomePage() {
               <div className="flex items-center justify-between mb-2">
                 {React.cloneElement(card.icon, { className: "text-3xl " + card.icon.props.className })}
               </div>
-              <div className="text-2xl font-bold text-white mb-1">{formatStatValue(card)}</div>
+              <div className={`text-2xl font-bold mb-1 ${card.id === 'lastBlock' ? getLastBlockTimeColor(lastBlockTime) : 'text-white'}`}>
+                {formatStatValue(card)}
+              </div>
               <div className="text-sm text-gray-400 uppercase tracking-wide">{card.label}</div>
             </div>
           ))}
@@ -676,7 +745,7 @@ function HomePage() {
             <div className="text-2xl font-bold text-white mb-1">
               {loadingStats ? '--' : errorStats || !stats['gasPrice'] ? '!' : (() => {
                 const priceInGwei = weiToGwei(Number(stats['gasPrice'].value));
-                return `${formatNumber(priceInGwei)} Gwei`;
+                return `${Math.floor(priceInGwei)} Gniku`;
               })()}
             </div>
             <div className="text-sm text-gray-400 uppercase tracking-wide">Gas Price</div>

@@ -6,7 +6,6 @@ import {
 
 const Header = () => {
     return (
-        <div className="header-footer-wrapper">
             <header className='bg-gray-900 border-b border-gray-800'>
                 <nav className='container-full mx-auto px-2 flex items-center justify-between h-14'>
                     <Link href='/' className='text-xl font-bold nav-link text-gray-100 hover:text-blue-400 transition-colors'>
@@ -38,7 +37,6 @@ const Header = () => {
                     </ul>
                 </nav>
             </header>
-        </div>
     );
 };
 

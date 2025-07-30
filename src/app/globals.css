@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Global styles */
+@import "tailwindcss";
+
 /* Custom animations for new blocks */
 @keyframes newBlockFlash {
   0% {
@@ -64,8 +67,14 @@ a:hover {
 
 /* Custom styles adapted from VirBiCoin Pool */
 @layer base {
+  html {
+    background-color: #111827; /* gray-900 */
+  }
+
   body {
-    padding: 0 auto;
+    padding-top: 0;
+    margin-bottom: 0;
+    background-color: #111827; /* gray-900 */
   }
 
   h1,
@@ -132,7 +141,10 @@ td.propagation-inactive {
 .container-full {
   width: 100%;
   max-width: 100%;
-  margin: 0 auto;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 @media (min-width: 1536px) {
@@ -150,7 +162,7 @@ td.propagation-inactive {
 
 /* Header and Footer wrapper with max-width */
 .header-footer-wrapper {
-  max-width: 100%;
+  max-width: 1920px;
   margin: 0 auto;
   width: 100%;
 }

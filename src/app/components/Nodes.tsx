@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 interface Node {
   id: string | number;
@@ -35,7 +35,7 @@ interface Node {
   totalDifficulty?: number;
   transactions?: number;
   uncles?: number;
-  lastBlockTime?: string;
+  lastBlockTime?: string | number;
   propagation?: string | number;
   propagationAvg?: string | number;
   uptime?: { lastStatus?: number; up?: number; down?: number };
@@ -85,6 +85,57 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   const [pinnedNodes, setPinnedNodes] = useState<Set<string | number>>(new Set());
   const [sortField, setSortField] = useState<SortField | null>('propagation');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // Real-time counter for block times - updates every second
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  
+  // Store when each node's block was first received
+  const [nodeBlockBaseTimes, setNodeBlockBaseTimes] = useState<Map<string | number, { baseTime: number, blockNumber: number }>>(new Map());
+
+  // Update current time every second for real-time block time display
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Track node block base times to enable real-time counting
+  useEffect(() => {
+    nodes.forEach(node => {
+      const currentBlockNumber = node.stats?.block?.number ?? node.block ?? 0;
+      const nodeId = node.id;
+      
+      setNodeBlockBaseTimes(prev => {
+        const existingData = prev.get(nodeId);
+        
+        // Only update if this is a new node OR block number actually increased
+        if (!existingData) {
+          // New node - set initial base time
+          const now = Date.now();
+          const newMap = new Map(prev);
+          newMap.set(nodeId, { 
+            baseTime: now, 
+            blockNumber: currentBlockNumber 
+          });
+          return newMap;
+        } else if (currentBlockNumber > existingData.blockNumber) {
+          // Block number increased - reset timer
+          const now = Date.now();
+          const newMap = new Map(prev);
+          newMap.set(nodeId, { 
+            baseTime: now, 
+            blockNumber: currentBlockNumber 
+          });
+          return newMap;
+        }
+        
+        // No change - keep existing base time
+        return prev;
+      });
+    });
+  }, [nodes]);
 
   // Toggle pin status for a node
   const togglePin = (nodeId: string | number) => {
@@ -238,7 +289,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
     
     if (!active) return 'text-gray-400';
     if (blockNumber < bestBlock) return 'text-yellow-400';
-    return 'text-green-400'; // Latest block is green
+    return 'text-green-400'; // Latest block is always green
   };
 
   const getBlockHashClass = (node: Node, bestBlock: number) => {
@@ -248,7 +299,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
     
     if (!active) return 'text-gray-400';
     if (blockNumber < bestBlock) return 'text-yellow-400';
-    return 'text-green-400'; // Latest block hash is green
+    return 'text-green-400'; // Latest block hash is always green
   };
 
   const getMiningClass = (node: Node) => {
@@ -265,6 +316,66 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
     if (uptime >= 95) return 'text-green-400';
     if (uptime >= 75) return 'text-yellow-400';
     return 'text-red-400';
+  };
+
+  // Function to get elapsed seconds for a node's last block
+  const getElapsedSeconds = (node: Node) => {
+    const nodeId = node.id;
+    const baseTimeData = nodeBlockBaseTimes.get(nodeId);
+    
+    if (baseTimeData) {
+      // Calculate real-time seconds elapsed since block was received
+      const elapsedMs = currentTime - baseTimeData.baseTime;
+      return Math.floor(elapsedMs / 1000);
+    }
+    
+    // Fallback to server-provided lastBlockTime if available
+    const secondsAgo = typeof node.lastBlockTime === 'number' ? node.lastBlockTime : null;
+    if (secondsAgo !== null) {
+      return secondsAgo;
+    }
+    
+    // Fallback to timestamp-based calculation
+    const received = node.stats?.block?.received || node.stats?.block?.timestamp || node.blockTimestamp;
+    
+    if (!received || received < 1e6) {
+      return 0; // Consider as current for "Live" nodes
+    }
+    
+    // Use current real-time for calculation
+    const now = currentTime;
+    const receivedMs = received < 1e12 ? received * 1000 : received;
+    const diff = Math.floor((now - receivedMs) / 1000);
+    
+    // Handle invalid timestamps
+    if (diff < 0 || diff > 86400 * 365) {
+      return 0; // Consider as current for invalid timestamps
+    }
+    
+    return diff;
+  };
+
+  // Function to get color class for Last Block based on elapsed time
+  const getLastBlockTimeClass = (node: Node, bestBlock: number) => {
+    const active = node.stats?.active ?? (node.peers !== undefined ? node.peers >= 0 : false);
+    const blockNumber = node.stats?.block?.number ?? node.block ?? 0;
+    
+    if (!active) return 'text-gray-400';
+    
+    // If node is on the latest block, apply time-based coloring
+    if (blockNumber >= bestBlock) {
+      const elapsedSeconds = getElapsedSeconds(node);
+      
+      // Green for recent blocks (0-15 seconds)
+      if (elapsedSeconds <= 15) return 'text-green-400';
+      // Orange for moderately old blocks (16-60 seconds)
+      if (elapsedSeconds <= 60) return 'text-orange-400';
+      // Red for old blocks (60+ seconds)
+      return 'text-red-400';
+    }
+    
+    // If node is behind, show yellow
+    return 'text-yellow-400';
   };
 
   const formatLatency = (node: Node) => {
@@ -289,24 +400,45 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   };
 
   const formatBlockTime = (node: Node) => {
-    // Check if we have the new server-calculated seconds ago value
+    const nodeId = node.id;
+    const baseTimeData = nodeBlockBaseTimes.get(nodeId);
+    
+    if (baseTimeData) {
+      // Calculate real-time seconds elapsed since block was received
+      const elapsedMs = currentTime - baseTimeData.baseTime;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      
+      // For VirBiCoin nodes, show "Live" if very recent (< 15 seconds)
+      if (node.id.toString().includes('Gvbc') && elapsedSeconds < 15) {
+        return 'Live';
+      }
+      
+      // Format the real-time elapsed time
+      if (elapsedSeconds < 15) return 'Live';
+      if (elapsedSeconds < 60) return `${elapsedSeconds}s ago`;
+      if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}m ago`;
+      if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)}h ago`;
+      return `${Math.floor(elapsedSeconds / 86400)}d ago`;
+    }
+    
+    // Fallback to server-provided lastBlockTime if available
     const secondsAgo = typeof node.lastBlockTime === 'number' ? node.lastBlockTime : null;
     
     if (secondsAgo !== null) {
-      // For VirBiCoin nodes, show "Live" if very recent (< 30 seconds)
-      if (node.id.toString().includes('Gvbc') && secondsAgo < 30) {
+      // For VirBiCoin nodes, show "Live" if very recent (< 15 seconds)
+      if (node.id.toString().includes('Gvbc') && secondsAgo < 15) {
         return 'Live';
       }
       
       // Format the time difference
-      if (secondsAgo === 0) return 'Live';
+      if (secondsAgo < 15) return 'Live';
       if (secondsAgo < 60) return `${secondsAgo}s ago`;
       if (secondsAgo < 3600) return `${Math.floor(secondsAgo / 60)}m ago`;
       if (secondsAgo < 86400) return `${Math.floor(secondsAgo / 3600)}h ago`;
       return `${Math.floor(secondsAgo / 86400)}d ago`;
     }
     
-    // Fallback to old timestamp-based calculation
+    // Fallback to timestamp-based calculation with real-time updates
     // Try to get received time from multiple sources
     const received = node.stats?.block?.received || node.stats?.block?.timestamp || node.blockTimestamp;
     
@@ -333,7 +465,8 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
       return 'Live';
     }
     
-    const now = Date.now();
+    // Use current real-time for calculation instead of Date.now()
+    const now = currentTime;
     
     // Check if timestamp is in seconds (< 1e12) or milliseconds (>= 1e12)
     const receivedMs = received < 1e12 ? received * 1000 : received;
@@ -344,12 +477,12 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
       return 'Live';
     }
     
-    // For very recent blocks (< 30 seconds), show as "Live" for active nodes
-    if (diff < 30 && node.stats?.active) {
+    // For very recent blocks (< 15 seconds), show as "Live" for active nodes
+    if (diff < 15 && node.stats?.active) {
       return 'Live';
     }
     
-    // Standard time formatting for valid timestamps
+    // Standard time formatting for valid timestamps with real-time updates
     if (diff < 60) return `${diff}s ago`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -687,11 +820,6 @@ const formatTotalDifficulty = (value: number | undefined): string => {
                     {(() => {
                       const pending = node.stats?.pending ?? node.pending ?? 0;
                       
-                      // Debug logging for pending values
-                      if (pending && typeof pending === 'object') {
-                        console.log('Pending object:', pending, 'Keys:', Object.keys(pending), 'Has value:', 'value' in pending);
-                      }
-                      
                       // Handle object with value property
                       if (typeof pending === 'object' && pending !== null && 'value' in pending) {
                         return (pending as { value: number }).value ?? 0;
@@ -754,7 +882,7 @@ const formatTotalDifficulty = (value: number | undefined): string => {
                         : (typeof uncles === 'number' ? uncles : 0);
                     })()}
                   </td>
-                  <td className="p-2 text-xs">
+                  <td className={`p-2 text-xs ${getLastBlockTimeClass(node, bestBlock)}`}>
                     {formatBlockTime(node)}
                   </td>
                   <td className={`p-2 ${getPropagationClass(node)}`}>

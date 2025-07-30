@@ -1155,30 +1155,32 @@ setInterval(() => {
     uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
   }));
   
-    // Calculate network statistics from actual data
-    const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-    const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
-    
-    // Calculate actual network statistics
-    const avgBlockTime = calculateAvgBlockTime(allNodes);
-    const totalDifficulty = calculateDifficulty(allNodes);
-    const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
-    
-    const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
-    const avgGasPrice = calculateAvgGasPrice(allNodes);
-    const lastBlock = bestBlock > 0 ? Date.now() - (bestBlock * avgBlockTime * 1000) : 0;
-    
-    const stats = {
-      bestBlock: { value: bestBlock },
-      activeNodes: { value: allNodes.length },
-      avgBlockTime: { value: avgBlockTime },
-      difficulty: { value: totalDifficulty },
-      avgNetworkHashrate: { value: totalHashrate, unit: 'H/s' },
-      uncles: { value: totalUncles },
-      gasPrice: { value: avgGasPrice },
-          gasLimit: { value: 8000000 },
-      lastBlock: { value: Math.floor(lastBlock / 1000) }
-    };  clientPrimus.forEach((spark) => {
+  // Calculate network statistics from actual data
+  const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
+  const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+  
+  // Calculate actual network statistics
+  const avgBlockTime = calculateAvgBlockTime(allNodes);
+  const totalDifficulty = calculateDifficulty(allNodes);
+  const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
+  
+  const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
+  const avgGasPrice = calculateAvgGasPrice(allNodes);
+  const lastBlock = bestBlock > 0 ? Date.now() - (bestBlock * avgBlockTime * 1000) : 0;
+  
+  const stats = {
+    bestBlock: { value: bestBlock },
+    activeNodes: { value: allNodes.length },
+    avgBlockTime: { value: avgBlockTime },
+    difficulty: { value: totalDifficulty },
+    avgNetworkHashrate: { value: totalHashrate, unit: 'H/s' },
+    uncles: { value: totalUncles },
+    gasPrice: { value: avgGasPrice },
+    gasLimit: { value: 8000000 },
+    lastBlock: { value: Math.floor(lastBlock / 1000) }
+  };
+  
+  clientPrimus.forEach((spark) => {
     spark.write({ action: 'init', data: { nodes: nodesData, stats: stats } });
   });
   Nodes.getCharts();

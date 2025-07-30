@@ -5,6 +5,27 @@ interface Node {
   id: string | number;
   name: string;
   type?: string;
+  info?: {
+    name?: string;
+    type?: string;
+    ip?: string;
+    node?: string;
+    net?: string;
+    protocol?: string;
+    api?: string;
+    port?: string;
+    os?: string;
+    os_v?: string;
+    client?: string;
+    [key: string]: unknown;
+  };
+  geo?: {
+    country?: string;
+    region?: string;
+    city?: string;
+    ll?: [number, number];
+    [key: string]: unknown;
+  } | null;
   latency?: string | number | { id: string; latency: string };
   mining?: boolean;
   peers?: number;
@@ -22,17 +43,6 @@ interface Node {
   latitude?: number;
   longitude?: number;
   blockTimestamp?: number;
-  info?: {
-    name: string;
-    node: string;
-    net?: string;
-    protocol?: string;
-    api?: string;
-    port?: string;
-    os?: string;
-    os_v?: string;
-    client?: string;
-  };
   stats?: {
     active: boolean;
     mining: boolean;
@@ -60,11 +70,6 @@ interface Node {
   readable?: {
     latencyClass: string;
     latency: string;
-  };
-  geo?: {
-    country: string;
-    city: string;
-    ll: [number, number];
   };
 }
 

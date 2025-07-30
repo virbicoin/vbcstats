@@ -27,6 +27,19 @@ interface Node {
   id: string | number;
   name: string;
   type?: string;
+  info?: {
+    name?: string;
+    type?: string;
+    ip?: string;
+    [key: string]: unknown;
+  };
+  geo?: {
+    country?: string;
+    region?: string;
+    city?: string;
+    ll?: [number, number];
+    [key: string]: unknown;
+  } | null;
   latency?: string | number | { id: string; latency: string };
   mining?: boolean;
   peers?: number;
@@ -204,7 +217,22 @@ function HomePage() {
     console.log('Current stored coordinates count:', nodeCoordinatesRef.current.size);
     
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
-      // Priority 1: If node already has coordinates from server (geoip-lite), use them
+      // Priority 1: If node has geo.ll data from server (geoip-lite), use it
+      if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
+        const coords = {
+          latitude: node.geo.ll[0],
+          longitude: node.geo.ll[1]
+        };
+        // Store in persistent map for future reference
+        nodeCoordinatesRef.current.set(node.id, coords);
+        console.log(`Node ${node.id} (${node.name}) has server geo coordinates:`, coords.latitude, coords.longitude);
+        return {
+          ...node,
+          ...coords
+        };
+      }
+      
+      // Priority 2: If node already has coordinates from server, use them
       if (node.latitude && node.longitude) {
         // Store in persistent map for future reference
         nodeCoordinatesRef.current.set(node.id, { 
@@ -215,7 +243,7 @@ function HomePage() {
         return node;
       }
       
-      // Priority 2: Check if we have stored coordinates for this node
+      // Priority 3: Check if we have stored coordinates for this node
       const storedCoords = nodeCoordinatesRef.current.get(node.id);
       if (storedCoords) {
         console.log(`Node ${node.id} (${node.name}) using stored coordinates:`, storedCoords.latitude, storedCoords.longitude);
@@ -226,7 +254,7 @@ function HomePage() {
         };
       }
       
-      // Priority 3: Try to get coordinates from IP address if available
+      // Priority 4: Try to get coordinates from IP address if available
       const ip = extractIPFromNode(node);
       if (ip) {
         try {

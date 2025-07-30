@@ -198,13 +198,13 @@ function HomePage() {
     }
   };
 
-  // Function to add stable coordinates to nodes based on their IP or ID
+  // Function to add stable coordinates to nodes based on server data or IP
   const addCoordinatesToNodes = useCallback(async (nodesList: Node[]): Promise<Node[]> => {
     console.log('Processing nodes for coordinates:', nodesList.length, 'nodes');
     console.log('Current stored coordinates count:', nodeCoordinatesRef.current.size);
     
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
-      // If node already has coordinates from server, use them
+      // Priority 1: If node already has coordinates from server (geoip-lite), use them
       if (node.latitude && node.longitude) {
         // Store in persistent map for future reference
         nodeCoordinatesRef.current.set(node.id, { 
@@ -215,7 +215,7 @@ function HomePage() {
         return node;
       }
       
-      // Check if we have stored coordinates for this node
+      // Priority 2: Check if we have stored coordinates for this node
       const storedCoords = nodeCoordinatesRef.current.get(node.id);
       if (storedCoords) {
         console.log(`Node ${node.id} (${node.name}) using stored coordinates:`, storedCoords.latitude, storedCoords.longitude);
@@ -226,7 +226,7 @@ function HomePage() {
         };
       }
       
-      // Try to get coordinates from IP address
+      // Priority 3: Try to get coordinates from IP address if available
       const ip = extractIPFromNode(node);
       if (ip) {
         try {
@@ -245,7 +245,7 @@ function HomePage() {
         }
       }
       
-      // Fallback: Generate stable coordinates based on node ID
+      // Fallback: Generate stable coordinates based on node ID (smaller spread)
       const cityCoordinates = [
         { lat: 35.6762, lng: 139.6503 }, // Tokyo
         { lat: 40.7128, lng: -74.0060 }, // New York
@@ -272,9 +272,9 @@ function HomePage() {
       const cityIndex = Math.abs(hash) % cityCoordinates.length;
       const selectedCity = cityCoordinates[cityIndex];
       
-      // Create consistent variation based on hash
-      const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 2; // -1 to +1 degrees (smaller variation)
-      const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 2; // -1 to +1 degrees
+      // Create smaller consistent variation based on hash (reduced from ±5 to ±1 degrees)
+      const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 1; // -0.5 to +0.5 degrees
+      const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 1; // -0.5 to +0.5 degrees
       
       const newCoords = {
         latitude: selectedCity.lat + latVariation,

@@ -3,6 +3,7 @@
 const expressApp = require('./lib/express');
 const { banned, reserved } = require('./lib/utils/config');
 const Collection = require('./lib/collection');
+const geoip = require('geoip-lite');
 const http = require('http');
 const Primus = require('primus');
 
@@ -48,6 +49,59 @@ const Nodes = new Collection(externalPrimus);
 
 // Block history for block time calculation with node-specific arrival tracking
 let blockHistory = [];
+
+// Function to set geographic information for a node (based on original vbcstats implementation)
+function setGeo(node, ip) {
+  if (!ip) return node;
+  
+  // Handle IPv6-mapped IPv4 addresses
+  let cleanIp = ip;
+  if (ip.substr(0, 7) === "::ffff:") {
+    cleanIp = ip.substr(7);
+  }
+  
+  // Set IP info
+  if (!node.info) node.info = {};
+  node.info.ip = cleanIp;
+  
+  // Get geo information using geoip-lite
+  const geo = geoip.lookup(cleanIp);
+  node.geo = geo;
+  
+  // If geo information is available, set latitude and longitude
+  if (geo && geo.ll && geo.ll.length === 2) {
+    node.latitude = geo.ll[0];  // latitude
+    node.longitude = geo.ll[1]; // longitude
+  }
+  
+  return node;
+}
+
+// Function to extract IP from spark connection (based on original implementation)
+function getNodeIP(spark) {
+  if (spark.address && spark.address.ip) {
+    return spark.address.ip;
+  }
+  
+  if (spark.request && spark.request.connection && spark.request.connection.remoteAddress) {
+    return spark.request.connection.remoteAddress;
+  }
+  
+  if (spark.request && spark.request.headers) {
+    // Check for forwarded IP headers
+    const forwardedFor = spark.request.headers['x-forwarded-for'];
+    if (forwardedFor) {
+      return forwardedFor.split(',')[0].trim();
+    }
+    
+    const realIP = spark.request.headers['x-real-ip'];
+    if (realIP) {
+      return realIP;
+    }
+  }
+  
+  return null;
+}
 const MAX_BLOCK_HISTORY = 50; // Keep last 50 blocks for calculation
 
 // Node-specific block tracking for propagation calculation (like GitHub implementation)
@@ -303,6 +357,9 @@ setInterval(() => {
       name: node.info?.name || node.id,
       type: node.info?.type || 'unknown',
       info: node.info || {}, // Include the info object for client access
+      geo: node.geo || null, // Include geo information
+      latitude: node.latitude || null, // Include latitude from geoip
+      longitude: node.longitude || null, // Include longitude from geoip
       latency: node.stats?.latency || 0,
       mining: node.stats?.mining || false,
       peers: node.stats?.peers || 0,
@@ -403,15 +460,26 @@ apiPrimus.on('connection', (spark) => {
     data.ip = spark.address.ip;
     data.spark = spark.id;
     data.latency = spark.latency || 0;
+    
+    // Get IP from spark connection
+    const nodeIP = getNodeIP(spark) || spark.address.ip;
+    
     Nodes.add(data, (err, info) => {
       if (!err && info) {
         console.log('API CON Node added:', info.id);
         
-        // Get the added node and check its state
+        // Get the added node and set geo information
         const addedNode = Nodes.getNode({ id: data.id });
         if (addedNode) {
+          // Set geographic information using geoip-lite
+          setGeo(addedNode, nodeIP);
+          
           console.log('Node details:', {
             id: addedNode.id,
+            ip: nodeIP,
+            geo: addedNode.geo,
+            latitude: addedNode.latitude,
+            longitude: addedNode.longitude,
             active: addedNode.stats?.active,
             statsExists: !!addedNode.stats,
             blockNumber: addedNode.stats?.block?.number
@@ -441,6 +509,9 @@ apiPrimus.on('connection', (spark) => {
           name: node.info?.name || node.id,
           type: node.info?.type || 'unknown',
           info: node.info || {}, // Include the info object for client access
+          geo: node.geo || null, // Include geo information
+          latitude: node.latitude || null, // Include latitude from geoip
+          longitude: node.longitude || null, // Include longitude from geoip
           latency: node.stats?.latency || 0,
           mining: node.stats?.mining || false,
           peers: node.stats?.peers || 0,
@@ -666,6 +737,9 @@ apiPrimus.on('connection', (spark) => {
               name: node.info?.name || node.id,
               type: node.info?.type || 'unknown',
               info: node.info || {}, // Include the info object for client access
+              geo: node.geo || null, // Include geo information
+              latitude: node.latitude || null, // Include latitude from geoip
+              longitude: node.longitude || null, // Include longitude from geoip
               latency: node.stats?.latency || 0,
               mining: node.stats?.mining || false,
               peers: node.stats?.peers || 0,
@@ -768,6 +842,9 @@ apiPrimus.on('connection', (spark) => {
               name: node.info?.name || node.id,
               type: node.info?.type || 'unknown',
               info: node.info || {}, // Include the info object for client access
+              geo: node.geo || null, // Include geo information
+              latitude: node.latitude || null, // Include latitude from geoip
+              longitude: node.longitude || null, // Include longitude from geoip
               latency: node.stats?.latency || 0,
               mining: node.stats?.mining || false,
               peers: node.stats?.peers || 0,
@@ -857,6 +934,9 @@ clientPrimus.on('connection', (spark) => {
       name: node.info?.name || node.id,
       type: node.info?.type || 'unknown',
       info: node.info || {}, // Include the info object for client access
+      geo: node.geo || null, // Include geo information
+      latitude: node.latitude || null, // Include latitude from geoip
+      longitude: node.longitude || null, // Include longitude from geoip
       latency: node.stats?.latency || 0,
       mining: node.stats?.mining || false,
       peers: node.stats?.peers || 0,
@@ -1057,6 +1137,9 @@ setInterval(() => {
     id: node.id,
     name: node.info?.name || node.id,
     type: node.info?.type || 'unknown',
+    geo: node.geo || null, // Include geo information
+    latitude: node.latitude || null, // Include latitude from geoip
+    longitude: node.longitude || null, // Include longitude from geoip
     latency: node.stats?.latency || 0,
     mining: node.stats?.mining || false,
     peers: node.stats?.peers || 0,

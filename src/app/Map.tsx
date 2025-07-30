@@ -20,6 +20,17 @@ interface Node {
   type?: string;
   mining?: boolean;
   peers?: number;
+  pending?: number;
+  block?: number;
+  blockHash?: string;
+  totalDifficulty?: number;
+  transactions?: number;
+  uncles?: number;
+  lastBlockTime?: string | number;
+  propagation?: string | number;
+  propagationAvg?: string | number;
+  uptime?: { lastStatus?: number; up?: number; down?: number };
+  latency?: string | number | { id: string; latency: string };
 }
 
 interface MapProps {
@@ -36,9 +47,19 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
     // Initialize map
     const map = L.map(mapContainerRef.current, {
       center: [35.0, 0],
-      zoom: 1,
+      zoom: 2,
       zoomControl: true,
       attributionControl: false,
+      // Disable automatic animations and interactions that could cause unwanted movement
+      zoomAnimation: false,
+      fadeAnimation: false,
+      markerZoomAnimation: false,
+      // Allow manual zoom/pan but prevent automatic behavior
+      doubleClickZoom: true,
+      scrollWheelZoom: true,
+      boxZoom: true,
+      keyboard: true,
+      dragging: true,
     });
 
     // Dark mode tile layer using CartoDB Dark Matter
@@ -109,17 +130,104 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
           icon: createCustomIcon(node)
         }).addTo(map);
 
-        // Add popup with node information
+        // Add popup with detailed node information
+        const formatLatency = (latency: string | number | { id: string; latency: string } | undefined) => {
+          if (!latency) return 'N/A';
+          if (typeof latency === 'object' && 'latency' in latency) {
+            return latency.latency;
+          }
+          return `${latency} ms`;
+        };
+
+        const formatUptime = (uptime: { lastStatus?: number; up?: number; down?: number } | undefined) => {
+          if (!uptime) return 'N/A';
+          if (uptime.lastStatus !== undefined) {
+            return `${Number(uptime.lastStatus).toFixed(2)}%`;
+          }
+          if (uptime.up !== undefined && uptime.down !== undefined) {
+            const total = uptime.up + uptime.down;
+            const percentage = total > 0 ? (uptime.up / total) * 100 : 0;
+            return `${percentage.toFixed(2)}%`;
+          }
+          return 'N/A';
+        };
+
         const popupContent = `
-          <div style="background: #1f2937; color: #f3f4f6; padding: 8px; border-radius: 4px; min-width: 150px;">
-            <h4 style="margin: 0 0 8px 0; color: #f59e0b; font-size: 14px;">${node.name}</h4>
-            <div style="font-size: 12px; line-height: 1.4;">
-              <div>Type: ${node.type || 'Unknown'}</div>
-              <div>Mining: ${node.mining ? 'Yes' : 'No'}</div>
-              ${node.peers ? `<div>Peers: ${node.peers}</div>` : ''}
-              <div style="margin-top: 4px; color: #9ca3af;">
-                ${node.latitude.toFixed(4)}, ${node.longitude.toFixed(4)}
+          <div style="background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 8px; min-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: ${node.mining ? '#f59e0b' : '#06b6d4'}; box-shadow: 0 0 8px rgba(${node.mining ? '245, 158, 11' : '6, 182, 212'}, 0.6);"></div>
+              <h4 style="margin: 0; color: #f59e0b; font-size: 16px; font-weight: 600;">${node.name}</h4>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; line-height: 1.4;">
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Type:</div>
+                <div style="color: #f3f4f6; font-weight: 500;">${node.type || 'Unknown'}</div>
               </div>
+              
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Mining:</div>
+                <div style="color: ${node.mining ? '#10b981' : '#ef4444'}; font-weight: 500;">${node.mining ? 'Active' : 'Inactive'}</div>
+              </div>
+              
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Peers:</div>
+                <div style="color: #f3f4f6; font-weight: 500;">${node.peers || '0'}</div>
+              </div>
+              
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Pending:</div>
+                <div style="color: #f3f4f6; font-weight: 500;">${node.pending || '0'}</div>
+              </div>
+              
+              ${node.block ? `
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Block:</div>
+                <div style="color: #3b82f6; font-weight: 500;">#${node.block.toLocaleString()}</div>
+              </div>
+              ` : ''}
+              
+              ${node.lastBlockTime ? `
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Last Block:</div>
+                <div style="color: #f3f4f6; font-weight: 500;">${node.lastBlockTime}s ago</div>
+              </div>
+              ` : ''}
+              
+              ${node.transactions ? `
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Transactions:</div>
+                <div style="color: #10b981; font-weight: 500;">${node.transactions}</div>
+              </div>
+              ` : ''}
+              
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Latency:</div>
+                <div style="color: #f3f4f6; font-weight: 500;">${formatLatency(node.latency)}</div>
+              </div>
+              
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Uptime:</div>
+                <div style="color: #10b981; font-weight: 500;">${formatUptime(node.uptime)}</div>
+              </div>
+              
+              ${node.propagation ? `
+              <div>
+                <div style="color: #9ca3af; margin-bottom: 2px;">Propagation:</div>
+                <div style="color: #f3f4f6; font-weight: 500;">${node.propagation}ms</div>
+              </div>
+              ` : ''}
+            </div>
+            
+            ${node.blockHash ? `
+            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #374151;">
+              <div style="color: #9ca3af; margin-bottom: 2px; font-size: 12px;">Block Hash:</div>
+              <div style="color: #6b7280; font-family: monospace; font-size: 11px; word-break: break-all;">${node.blockHash}</div>
+            </div>
+            ` : ''}
+            
+            <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #374151; font-size: 11px; color: #6b7280; text-align: center;">
+              📍 ${node.latitude?.toFixed(4)}, ${node.longitude?.toFixed(4)}
             </div>
           </div>
         `;
@@ -127,19 +235,27 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         marker.bindPopup(popupContent, {
           className: 'dark-popup',
           closeButton: true,
-          autoPan: true,
+          autoPan: false, // Disable automatic panning to prevent unwanted map movement
+          maxWidth: 300,
+          minWidth: 250,
+        });
+
+        // Add click event for immediate popup opening (in addition to hover)
+        marker.on('click', function(this: L.Marker) {
+          this.openPopup();
         });
       }
     });
 
-    // Fit map to show all nodes if any exist
+    // Fit map to show all nodes if any exist, but without animation
     if (validNodes.length > 0) {
       const group = new L.FeatureGroup(
         validNodes.map(node => 
           L.marker([node.latitude!, node.longitude!])
         )
       );
-      map.fitBounds(group.getBounds().pad(0.1));
+      // Fit bounds without animation to prevent unwanted automatic movement
+      map.fitBounds(group.getBounds().pad(0.1), { animate: false });
     }
 
   }, [nodes]);
@@ -180,8 +296,14 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         .dark-popup .leaflet-popup-content-wrapper {
           background: #1f2937 !important;
           border: 1px solid #374151 !important;
-          border-radius: 8px !important;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4) !important;
+          padding: 0 !important;
+        }
+        
+        .dark-popup .leaflet-popup-content {
+          margin: 0 !important;
+          padding: 0 !important;
         }
         
         .dark-popup .leaflet-popup-tip {
@@ -191,12 +313,17 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         
         .dark-popup .leaflet-popup-close-button {
           color: #9ca3af !important;
-          font-size: 16px !important;
+          font-size: 18px !important;
           font-weight: bold !important;
+          padding: 8px !important;
+          top: 8px !important;
+          right: 8px !important;
         }
         
         .dark-popup .leaflet-popup-close-button:hover {
           color: #f3f4f6 !important;
+          background: rgba(55, 65, 81, 0.5) !important;
+          border-radius: 4px !important;
         }
         
         .custom-node-marker {

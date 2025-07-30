@@ -6,7 +6,7 @@ const Collection = require('./lib/collection');
 const http = require('http');
 const Primus = require('primus');
 
-const PORT = parseInt(process.env.PORT_SERVER || '3001', 10);
+const PORT = parseInt(process.env.PORT_SERVER || '4000', 10);
 const WS_SECRET_ENV = process.env.WS_SECRET || '';
 const WS_SECRET = WS_SECRET_ENV.includes('|') ? WS_SECRET_ENV.split('|') : [WS_SECRET_ENV];
 
@@ -282,300 +282,65 @@ function calculateNodeBlockTime(node) {
   return Math.max(0, secondsAgo);
 }
 
-// Add test nodes for demonstration
-const baseBlockNumber = 304800; // Starting block number
-const baseTimestamp = Date.now() - (10 * 13 * 1000); // 10 blocks ago at 13 second intervals
-
-const testNodes = [
-  {
-    id: 'test-node-1',
-    info: {
-      name: 'Tokyo Miner',
-      node: 'VirBiCoin/v1.0.0',
-      port: 8080,
-      net: 'mainnet',
-      protocol: 'eth/66',
-      api: 'web3/1.0.0',
-      os: 'linux-x64',
-      os_v: 'Ubuntu 22.04',
-      client: '0.0.1',
-      canUpdateHistory: true
-    },
-    stats: {
-      active: true,
-      mining: true,
-      hashrate: 1500000000,
-      peers: 25,
-      pending: 3,
-      gasPrice: 25000000000,
-      block: {
-        number: baseBlockNumber + 8,
-        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-        totalDifficulty: 95000000000 + Math.floor(Math.random() * 10000000000),
-        difficulty: 95000000000 + Math.floor(Math.random() * 10000000000),
-        gasLimit: 8000000,
-        timestamp: baseTimestamp + (8 * 12000) + Math.random() * 2000, // ~12 seconds per block with variation
-        time: baseTimestamp + (8 * 12000) + Math.random() * 2000,
-        miner: '0x742d35Cc6634C0532925a3b8D6Ac6dB608C6e5',
-        size: 1024,
-        transactions: [
-          { hash: '0x1111111111111111111111111111111111111111111111111111111111111111' },
-          { hash: '0x2222222222222222222222222222222222222222222222222222222222222222' }
-        ],
-        uncles: []
-      },
-      syncing: false,
-      propagationAvg: 250,
-      latency: 45,
-      uptime: 99.8
-    }
-  },
-  {
-    id: 'test-node-2',
-    info: {
-      name: 'London Node',
-      node: 'VirBiCoin/v1.0.0',
-      port: 8080,
-      net: 'mainnet',
-      protocol: 'eth/66',
-      api: 'web3/1.0.0',
-      os: 'linux-x64',
-      os_v: 'Ubuntu 22.04',
-      client: '0.0.1',
-      canUpdateHistory: true
-    },
-    stats: {
-      active: true,
-      mining: false,
-      hashrate: 0,
-      peers: 18,
-      pending: 1,
-      gasPrice: 24000000000,
-      block: {
-        number: baseBlockNumber + 9,
-        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-        totalDifficulty: 96000000000 + Math.floor(Math.random() * 8000000000),
-        difficulty: 96000000000 + Math.floor(Math.random() * 8000000000),
-        gasLimit: 8000000,
-        timestamp: baseTimestamp + (9 * 13500) + Math.random() * 1000, // ~13.5 seconds per block with variation
-        time: baseTimestamp + (9 * 13500) + Math.random() * 1000,
-        miner: '0x742d35Cc6634C0532925a3b8D6Ac6dB608C6e5',
-        size: 1024,
-        transactions: [
-          { hash: '0x1111111111111111111111111111111111111111111111111111111111111111' },
-          { hash: '0x2222222222222222222222222222222222222222222222222222222222222222' }
-        ],
-        uncles: []
-      },
-      syncing: false,
-      propagationAvg: 180,
-      latency: 32,
-      uptime: 98.5
-    }
-  },
-  {
-    id: 'test-node-3',
-    info: {
-      name: 'NY Validator',
-      node: 'VirBiCoin/v1.0.0',
-      port: 8080,
-      net: 'mainnet',
-      protocol: 'eth/66',
-      api: 'web3/1.0.0',
-      os: 'linux-x64',
-      os_v: 'Ubuntu 22.04',
-      client: '0.0.1',
-      canUpdateHistory: true
-    },
-    stats: {
-      active: true,
-      mining: true,
-      hashrate: 2800000000,
-      peers: 32,
-      pending: 5,
-      gasPrice: 26000000000,
-      block: {
-        number: baseBlockNumber + 10,
-        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-        totalDifficulty: 98000000000 + Math.floor(Math.random() * 12000000000),
-        difficulty: 98000000000 + Math.floor(Math.random() * 12000000000),
-        gasLimit: 8000000,
-        timestamp: baseTimestamp + (10 * 14000) + Math.random() * 2000, // ~14 seconds per block with variation
-        time: baseTimestamp + (10 * 14000) + Math.random() * 2000,
-        miner: '0x742d35Cc6634C0532925a3b8D6Ac6dB608C6e5',
-        size: 1024,
-        transactions: [
-          { hash: '0x1111111111111111111111111111111111111111111111111111111111111111' },
-          { hash: '0x2222222222222222222222222222222222222222222222222222222222222222' }
-        ],
-        uncles: []
-      },
-      syncing: false,
-      propagationAvg: 320,
-      latency: 78,
-      uptime: 97.2
-    }
-  }
-];
-
-// Add test nodes to collection
-setTimeout(() => {
-  testNodes.forEach(node => {
-    Nodes.add(node, (err, info) => {
-      if (err) {
-        console.error('Error adding test node:', err);
-      } else {
-        console.log('Test node added:', node.id);
-        // Add test node block to history
-        if (node.stats?.block?.number && node.stats?.block?.timestamp) {
-          addBlockToHistory(node.stats.block.number, node.stats.block.timestamp);
-        }
-      }
-    });
-  });
-  
-  // Add historical block data to simulate 10 blocks for calculation
-  setTimeout(() => {
-    addHistoricalBlocks();
-  }, 2000);
-}, 1000);
-
-// Function to add historical blocks for better avg block time calculation
-function addHistoricalBlocks() {
-  const historicalBlocks = [];
-  
-  // Generate 10 blocks with varying block times (10-16 seconds)
-  for (let i = 0; i < 10; i++) {
-    const blockNumber = baseBlockNumber + i;
-    const blockTime = 10000 + Math.random() * 6000; // 10-16 seconds in milliseconds
-    const timestamp = baseTimestamp + (i * blockTime);
-    
-    historicalBlocks.push({
-      id: `historical-block-${i}`,
-      info: {
-        name: `Historical Block ${blockNumber}`,
-        node: 'VirBiCoin/v1.0.0',
-        canUpdateHistory: false
-      },
-      stats: {
-        active: true,
-        mining: false,
-        hashrate: 0,
-        peers: 0,
-        pending: 0,
-        gasPrice: 1000000000,
-        block: {
-          number: blockNumber,
-          hash: `0x${i.toString(16).padStart(64, '0')}`,
-          totalDifficulty: 90000000000 + (i * 1000000),
-          difficulty: 90000000000 + (i * 1000000),
-          gasLimit: 8000000,
-          timestamp: timestamp, // Already in milliseconds
-          time: timestamp, // Already in milliseconds
-          miner: '0x742d35Cc6634C0532925a3b8D6Ac6dB608C6e5',
-          size: 1024,
-          transactions: [],
-          uncles: []
-        },
-        syncing: false,
-        propagationAvg: 200,
-        latency: 50,
-        uptime: 100
-      }
-    });
-  }
-  
-  // Add historical blocks to collection
-  historicalBlocks.forEach(block => {
-    Nodes.add(block, (err, info) => {
-      if (err) {
-        console.error('Error adding historical block:', err);
-      } else {
-        console.log('Historical block added:', block.stats.block.number);
-        // Add historical block to block history for calculation (timestamp already in ms)
-        addBlockToHistory(block.stats.block.number, block.stats.block.timestamp);
-      }
-    });
-  });
-  
-  console.log('Added 10 historical blocks for block time calculation');
-  
-  // Trigger statistics recalculation after adding historical blocks
-  setTimeout(() => {
-    console.log('Network statistics initialized with block history');
-    const allNodes = Nodes.all();
-    const avgBlockTime = calculateAvgBlockTime(allNodes);
-    
-    // Broadcast updated statistics to all clients
-    clientPrimus.forEach((spark) => {
-      const nodesData = allNodes.map(node => ({
-        id: node.id,
-        name: node.info?.name || node.id,
-        type: node.info?.type || 'unknown',
-        info: node.info || {}, // Include the info object for client access
-        latency: node.stats?.latency || 0,
-        mining: node.stats?.mining || false,
-        peers: node.stats?.peers || 0,
-        pending: node.stats?.pending || 0,
-        block: node.stats?.block?.number || 0,
-        blockHash: node.stats?.block?.hash || '',
-        totalDifficulty: node.stats?.block?.totalDifficulty || 0,
-        transactions: node.stats?.block?.transactions?.length || 0,
-        uncles: node.stats?.block?.uncles?.length || 0,
-        lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
-        propagation: node.stats?.block?.propagation || 0,
-        propagationAvg: node.stats?.propagationAvg || 0,
-        uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
-      }));
-      
-      const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-      const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
-      const totalDifficulty = calculateDifficulty(allNodes);
-      const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
-      const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
-      const avgGasPrice = calculateAvgGasPrice(allNodes);
-      const lastBlock = bestBlock > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTime)) : 0;
-      
-      const updatedStats = {
-        bestBlock: { value: bestBlock },
-        activeNodes: { value: allNodes.length },
-        avgBlockTime: { value: avgBlockTime },
-        difficulty: { value: Math.round(totalDifficulty) },
-        avgNetworkHashrate: { value: Math.round(totalHashrate), unit: 'H/s' },
-        uncles: { value: totalUncles },
-        gasPrice: { value: avgGasPrice },
-          gasLimit: { value: 8000000 },
-        lastBlock: { value: lastBlock }
-      };
-      
-      spark.write({ action: 'update', data: { nodes: nodesData, stats: updatedStats } });
-    });
-  }, 1000);
-}
-
-// Update test node data periodically to ensure dynamic calculations
+// Update nodes and send data to all connected clients
 setInterval(() => {
-  testNodes.forEach((node, index) => {
-    // Update block data with realistic varying values
-    const blockTimeVariation = 10000 + Math.random() * 6000; // 10-16 seconds in milliseconds
-    const difficultyVariation = 90000000000 + Math.random() * 20000000000; // 90-110 GH
+  const allNodes = Nodes.all();
+  
+  if (allNodes.length === 0) {
+    console.log('No nodes available for update');
+    return;
+  }
+  
+  const avgBlockTime = calculateAvgBlockTime(allNodes);
+  
+  clientPrimus.forEach((spark) => {
+    if (!spark.readyState || spark.readyState !== 1) {
+      return; // Skip disconnected clients
+    }
     
-    // Set timestamp in milliseconds (current time minus variation)
-    const currentTimeMs = Date.now();
-    node.stats.block.timestamp = currentTimeMs - blockTimeVariation;
-    node.stats.block.time = currentTimeMs - blockTimeVariation;
-    node.stats.block.totalDifficulty = difficultyVariation;
-    node.stats.block.difficulty = difficultyVariation;
-    node.stats.block.number += Math.floor(Math.random() * 2); // Occasionally increment block
+    const nodesData = allNodes.map(node => ({
+      id: node.id,
+      name: node.info?.name || node.id,
+      type: node.info?.type || 'unknown',
+      info: node.info || {}, // Include the info object for client access
+      latency: node.stats?.latency || 0,
+      mining: node.stats?.mining || false,
+      peers: node.stats?.peers || 0,
+      pending: node.stats?.pending || 0,
+      block: node.stats?.block?.number || 0,
+      blockHash: node.stats?.block?.hash || '',
+      totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+      transactions: node.stats?.block?.transactions?.length || 0,
+      uncles: node.stats?.block?.uncles?.length || 0,
+      lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
+      propagation: node.stats?.block?.propagation || 0,
+      propagationAvg: node.stats?.propagationAvg || 0,
+      uptime: node.uptime || node.stats?.uptime || { up: 0, down: 0, lastStatus: 100 }
+    }));
     
-    // Update the node in collection
-    Nodes.update(node.id, { stats: node.stats }, (err, info) => {
-      if (!err && info) {
-        console.log(`Updated test node ${node.id} with new block data`);
-      }
-    });
+    const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
+    const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+    const totalDifficulty = calculateDifficulty(allNodes);
+    const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
+    const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
+    const avgGasPrice = calculateAvgGasPrice(allNodes);
+    const lastBlock = bestBlock > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTime)) : 0;
+    
+    const updatedStats = {
+      bestBlock: { value: bestBlock },
+      activeNodes: { value: allNodes.length },
+      avgBlockTime: { value: avgBlockTime },
+      difficulty: { value: Math.round(totalDifficulty) },
+      avgNetworkHashrate: { value: Math.round(totalHashrate), unit: 'H/s' },
+      uncles: { value: totalUncles },
+      gasPrice: { value: avgGasPrice },
+      gasLimit: { value: 8000000 },
+      lastBlock: { value: lastBlock }
+    };
+    
+    spark.write({ action: 'update', data: { nodes: nodesData, stats: updatedStats } });
   });
-}, 15000); // Update every 15 seconds
+}, 1000);
 
 // Charts callback
 Nodes.setChartsCallback((err, charts) => {

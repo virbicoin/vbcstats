@@ -10,11 +10,11 @@ import dynamic from "next/dynamic";
 //   write: (data: unknown) => void;
 // };
 
-// Map component is commented out as it's not used in current implementation
-// const Map = dynamic(() => import('./Map'), {
-//   loading: () => <div className="w-full h-full bg-[#111] border border-[#222] flex items-center justify-center"><p className="text-gray-400">Loading Map...</p></div>,
-//   ssr: false,
-// });
+// Map component for node visualization
+const Map = dynamic(() => import('./Map'), {
+  loading: () => <div className="w-full h-full bg-[#111] border border-[#222] flex items-center justify-center"><p className="text-gray-400">Loading Map...</p></div>,
+  ssr: false,
+});
 
 const Charts = dynamic(() => import('./components/Charts').then(mod => ({ default: mod.default })), {
   loading: () => <div className="w-full h-full bg-gray-800 rounded flex items-center justify-center"><p className="text-gray-400">Loading Chart...</p></div>,
@@ -146,10 +146,11 @@ function HomePage() {
 
   // Reset last block time when new block arrives
   useEffect(() => {
-    if (stats['bestBlock'] && typeof stats['bestBlock'].value === 'number' && stats['bestBlock'].value > 0) {
+    const bestBlockValue = stats['bestBlock']?.value;
+    if (bestBlockValue && typeof bestBlockValue === 'number' && bestBlockValue > 0) {
       setLastBlockTime(0);
     }
-  }, [stats['bestBlock']]);
+  }, [stats]);
 
   // Reset latency retry count periodically
   useEffect(() => {
@@ -167,17 +168,53 @@ function HomePage() {
   }, []);
 
   useEffect(() => {
-    // Load Primus client library directly from server
+    // Determine the appropriate server URL based on environment
+    const customWsUrl = process.env['NEXT_PUBLIC_WS_URL'];
+    const isProduction = process.env.NODE_ENV === 'production';
+    const serverPort = process.env['NEXT_PUBLIC_SERVER_PORT'] || '5000';
+    
+    // Use custom WS URL if provided, otherwise determine based on environment
+    let baseUrl: string;
+    let wsUrl: string;
+    
+    if (isProduction) {
+      // In production, always use HTTPS for script loading
+      baseUrl = 'https://stats.digitalregion.jp';
+      // For WebSocket, use the custom URL if provided, otherwise default to WSS
+      if (customWsUrl) {
+        wsUrl = customWsUrl;
+      } else {
+        wsUrl = 'wss://stats.digitalregion.jp';
+      }
+    } else {
+      // Development environment - use HTTP for both script and WebSocket
+      baseUrl = `http://localhost:${serverPort}`;
+      wsUrl = `ws://localhost:${serverPort}`;
+    }
+    
+    // Load Primus client library from server
     const script = document.createElement('script');
-    script.src = 'http://localhost:4000/primus/primus.js';
+    script.src = `${baseUrl}/primus/primus.js`;
     script.onload = () => {
-      console.log('Primus library loaded');
+      console.log('Primus library loaded from:', baseUrl);
+      
+      // Check if Primus is available
+      if (!(window as unknown as { Primus?: unknown }).Primus) {
+        console.error('Primus library not found after loading');
+        setErrorStats('Failed to load Primus WebSocket library');
+        return;
+      }
       
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const primus = new (window as any).Primus('http://localhost:4000');
+        const PrimusConstructor = (window as unknown as { Primus: new (url: string) => unknown }).Primus;
+        const primus = new PrimusConstructor(wsUrl) as {
+          on: (event: string, callback: (data?: unknown) => void) => void;
+          emit?: (event: string, data?: unknown) => void;
+          write?: (data: unknown) => void;
+        };
 
         primus.on('open', () => {
+          console.log('WebSocket connection opened to:', wsUrl);
           setErrorStats("");
           // Small delay to ensure connection is fully established
           setTimeout(() => {
@@ -187,58 +224,89 @@ function HomePage() {
               } else if (typeof primus.write === 'function') {
                 primus.write({ action: 'ready' });
               }
+              console.log('Ready event sent to server');
             } catch (err) {
               console.error('Failed to send ready event:', err);
             }
           }, 100);
         });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      primus.on('data', (message: any) => {
-        if (message.action === 'init' && message.data) {
-          const nodesWithCoords = addCoordinatesToNodes(message.data.nodes || []);
+        primus.on('error', (err: unknown) => {
+          console.error('WebSocket error:', err);
+          const errorMessage = typeof err === 'object' && err !== null && 'message' in err 
+            ? (err as { message: string }).message 
+            : String(err);
+          setErrorStats(`WebSocket Error: ${errorMessage}`);
+        });
+
+        primus.on('close', () => {
+          console.log('WebSocket connection closed');
+          setErrorStats('WebSocket connection closed');
+        });
+
+        primus.on('disconnect', () => {
+          console.log('WebSocket disconnected');
+          setErrorStats('WebSocket disconnected - trying to reconnect...');
+        });
+
+      primus.on('data', (message: unknown) => {
+        const typedMessage = message as { 
+          action?: string; 
+          data?: {
+            nodes?: Node[];
+            stats?: StatsData;
+            id?: string | number;
+            serverTime?: number;
+            latency?: number;
+          };
+        };
+        console.log('WebSocket data received:', typedMessage.action, typedMessage);
+        if (typedMessage.action === 'init' && typedMessage.data) {
+          console.log('Processing init data:', typedMessage.data);
+          const nodesWithCoords = addCoordinatesToNodes(typedMessage.data.nodes || []);
           setNodes(nodesWithCoords);
-          setStats(message.data.stats || {});
+          setStats(typedMessage.data.stats || {});
           setLoadingStats(false);
           setLastBlockTime(0); // Reset timer on new data
-        } else if (message.action === 'update' && message.data) {
+          console.log('Init data processed, nodes:', nodesWithCoords.length, 'stats keys:', Object.keys(typedMessage.data.stats || {}));
+        } else if (typedMessage.action === 'update' && typedMessage.data) {
           // Update individual node stats but keep network stats
-          if (message.data.id && message.data.stats) {
+          if (typedMessage.data.id && typedMessage.data.stats) {
             setNodes(prev => prev.map(node => 
-              node.id === message.data.id ? { ...node, ...message.data } : node
+              node.id === typedMessage.data!.id ? { ...node, ...typedMessage.data } : node
             ));
           }
-        } else if (message.action === 'block' && message.data) {
+        } else if (typedMessage.action === 'block' && typedMessage.data) {
           // Handle block updates - refresh all data (both nodes and stats will be updated)
-          if (message.data.nodes && message.data.stats) {
-            const nodesWithCoords = addCoordinatesToNodes(message.data.nodes);
+          if (typedMessage.data.nodes && typedMessage.data.stats) {
+            const nodesWithCoords = addCoordinatesToNodes(typedMessage.data.nodes);
             setNodes(nodesWithCoords);
-            setStats(message.data.stats);
+            setStats(typedMessage.data.stats);
             setLastBlockTime(0); // Reset timer on new block
-          } else if (message.data.id) {
+          } else if (typedMessage.data.id) {
             setNodes(prev => prev.map(node => 
-              node.id === message.data.id ? { ...node, ...message.data } : node
+              node.id === typedMessage.data!.id ? { ...node, ...typedMessage.data } : node
             ));
             setLastBlockTime(0); // Reset timer on new block
           }
-        } else if (message.action === 'stats' && message.data) {
+        } else if (typedMessage.action === 'stats' && typedMessage.data) {
           // Handle stats updates - refresh all data
-          if (message.data.nodes && message.data.stats) {
-            const nodesWithCoords = addCoordinatesToNodes(message.data.nodes);
+          if (typedMessage.data.nodes && typedMessage.data.stats) {
+            const nodesWithCoords = addCoordinatesToNodes(typedMessage.data.nodes);
             setNodes(nodesWithCoords);
-            setStats(message.data.stats);
-          } else if (message.data.id && message.data.stats) {
+            setStats(typedMessage.data.stats);
+          } else if (typedMessage.data.id && typedMessage.data.stats) {
             setNodes(prev => prev.map(node => 
-              node.id === message.data.id ? { ...node, ...message.data.stats } : node
+              node.id === typedMessage.data!.id ? { ...node, ...typedMessage.data!.stats } : node
             ));
           }
-        } else if (message.action === 'charts' && message.data) {
+        } else if (typedMessage.action === 'charts' && typedMessage.data) {
           // Handle charts data if needed
-        } else if (message.action === 'client-ping' && message.data) {
+        } else if (typedMessage.action === 'client-ping' && typedMessage.data) {
           // Handle server ping - send pong back with the server time
           const currentTime = Date.now();
           const pongData = {
-            serverTime: message.data.serverTime,
+            serverTime: typedMessage.data.serverTime,
             clientTime: currentTime
           };
           let pongSent = false;
@@ -251,7 +319,9 @@ function HomePage() {
               });
               pongSent = true;
             }
-          } catch (err) {}
+          } catch {
+            // Error ignored intentionally
+          }
           // Method 2: Try emit method as backup if write failed
           if (!pongSent) {
             try {
@@ -259,7 +329,9 @@ function HomePage() {
                 primus.emit('client-pong', pongData);
                 pongSent = true;
               }
-            } catch (err) {}
+            } catch {
+              // Error ignored intentionally
+            }
           }
           // Update retry count based on success
           if (pongSent) {
@@ -267,9 +339,9 @@ function HomePage() {
           } else {
             setLatencyRetryCount(prev => prev + 1);
           }
-        } else if (message.action === 'client-latency' && message.data) {
-          if (message.data.latency !== undefined && message.data.latency > 0) {
-            const newLatency = Math.round(message.data.latency);
+        } else if (typedMessage.action === 'client-latency' && typedMessage.data) {
+          if (typedMessage.data.latency !== undefined && typedMessage.data.latency > 0) {
+            const newLatency = Math.round(typedMessage.data.latency);
             // Update both state variables
             setPageLatency(newLatency);
             setLastValidLatency(newLatency);
@@ -288,7 +360,6 @@ function HomePage() {
         }
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       primus.on('error', () => {
         setErrorStats("Connection error");
       });
@@ -299,11 +370,16 @@ function HomePage() {
       }
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     script.onerror = () => {
       setErrorStats("Failed to load Primus");
     };
 
+    script.onerror = (error) => {
+      console.error('Failed to load Primus library from:', baseUrl, error);
+      setErrorStats(`Failed to load WebSocket library from ${baseUrl}`);
+      setLoadingStats(false);
+    };
+    
     document.head.appendChild(script);
 
     return () => {
@@ -468,6 +544,19 @@ function HomePage() {
         {/* Charts and Visualizations */}
         <div className="mb-8">
           <Charts currentStats={stats} nodes={nodes} />
+        </div>
+
+        {/* World Map */}
+        <div className="mb-8">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <span>🌍</span>
+              Node Network Map
+            </h2>
+            <div className="h-96">
+              <Map nodes={nodes} />
+            </div>
+          </div>
         </div>
 
         {/* Nodes Table */}

@@ -29,8 +29,8 @@
   },
   "homepage": "https://github.com/virbicoin/vbcstats#readme",
   "scripts": {
-    "server-dev": "bash -c 'WS_SECRET=\"Aoi0124\" PORT_SERVER=4000 ./server-simple.js'",
-    "next-dev": "next dev -p 3000",
+    "server-dev": "bash -c 'set -a; [ -f .env ] && source .env; set +a; WS_SECRET=\"$WS_SECRET\" PORT_SERVER=\"$PORT_SERVER\" node ./server-simple.js'",
+    "next-dev": "bash -c 'set -a; [ -f .env ] && source .env; set +a; next dev -p \"$PORT\"'",
     "dev": "concurrently \"npm:server-dev\" \"npm:next-dev\"",
     "build": "next build",
     "next-start": "bash -c 'set -a; [ -f .env ] && source .env; set +a; next start -p \"$PORT\"'",

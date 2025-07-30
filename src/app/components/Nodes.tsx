@@ -83,7 +83,7 @@ type SortDirection = 'asc' | 'desc';
 
 const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   const [pinnedNodes, setPinnedNodes] = useState<Set<string | number>>(new Set());
-  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortField, setSortField] = useState<SortField | null>('propagation');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Toggle pin status for a node
@@ -238,7 +238,17 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
     
     if (!active) return 'text-gray-400';
     if (blockNumber < bestBlock) return 'text-yellow-400';
-    return 'text-white';
+    return 'text-green-400'; // Latest block is green
+  };
+
+  const getBlockHashClass = (node: Node, bestBlock: number) => {
+    // Check direct properties first, then stats if it exists
+    const active = node.stats?.active ?? (node.peers !== undefined ? node.peers >= 0 : false);
+    const blockNumber = node.stats?.block?.number ?? node.block ?? 0;
+    
+    if (!active) return 'text-gray-400';
+    if (blockNumber < bestBlock) return 'text-yellow-400';
+    return 'text-green-400'; // Latest block hash is green
   };
 
   const getMiningClass = (node: Node) => {
@@ -689,7 +699,7 @@ const formatTotalDifficulty = (value: number | undefined): string => {
                         : (typeof blockNumber === 'number' ? blockNumber : 0);
                     })()}
                   </td>
-                  <td className="p-2 text-gray-400 font-mono text-xs">
+                  <td className={`p-2 ${getBlockHashClass(node, bestBlock)} font-mono text-xs`}>
                     {formatHash(node.stats?.block?.hash ?? node.blockHash ?? '')}
                   </td>
                   <td className="p-2 text-xs">

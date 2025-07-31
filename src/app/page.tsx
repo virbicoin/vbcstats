@@ -304,8 +304,25 @@ function HomePage() {
     }
     
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
-      // Priority 1: If node has geo.ll data from server (geoip-lite), use it
-      if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
+      // Priority 1: If node has server-provided coordinates (from geoip-lite), use them immediately
+      if (node.latitude && node.longitude && 
+          typeof node.latitude === 'number' && typeof node.longitude === 'number' &&
+          !isNaN(node.latitude) && !isNaN(node.longitude)) {
+        // Store server coordinates in persistent map for future reference
+        const serverCoords = {
+          latitude: node.latitude,
+          longitude: node.longitude
+        };
+        nodeCoordinatesRef.current.set(node.id, serverCoords);
+        saveCoordinatesToStorage();
+        console.log(`Node ${node.id} (${node.name}) using server-provided coordinates:`, node.latitude, node.longitude);
+        return node;
+      }
+      
+      // Priority 2: If node has geo.ll data from server (geoip-lite), use it
+      if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2 &&
+          typeof node.geo.ll[0] === 'number' && typeof node.geo.ll[1] === 'number' &&
+          !isNaN(node.geo.ll[0]) && !isNaN(node.geo.ll[1])) {
         const coords = {
           latitude: node.geo.ll[0],
           longitude: node.geo.ll[1]
@@ -313,23 +330,11 @@ function HomePage() {
         // Store in persistent map for future reference
         nodeCoordinatesRef.current.set(node.id, coords);
         saveCoordinatesToStorage();
-        console.log(`Node ${node.id} (${node.name}) has server geo coordinates:`, coords.latitude, coords.longitude);
+        console.log(`Node ${node.id} (${node.name}) using server geo.ll coordinates:`, coords.latitude, coords.longitude);
         return {
           ...node,
           ...coords
         };
-      }
-      
-      // Priority 2: If node already has coordinates from server, use them
-      if (node.latitude && node.longitude) {
-        // Store in persistent map for future reference
-        nodeCoordinatesRef.current.set(node.id, { 
-          latitude: node.latitude, 
-          longitude: node.longitude 
-        });
-        saveCoordinatesToStorage();
-        console.log(`Node ${node.id} (${node.name}) has server coordinates:`, node.latitude, node.longitude);
-        return node;
       }
       
       // Priority 3: Check if we have stored coordinates for this node
@@ -363,99 +368,34 @@ function HomePage() {
         }
       }
       
-      // Fallback: Generate appropriate coordinates based on node name patterns and ID
-      // First, check if node name suggests a specific region
-      const nodeName = node.name.toLowerCase();
-      let baseCoords: { lat: number; lng: number };
-      
-      // Check for specific regional patterns in node names
-      if (nodeName.includes('japan') || nodeName.includes('jp') || nodeName.includes('tokyo') || 
-          nodeName.includes('osaka') || nodeName.includes('kyoto')) {
-        // Japanese nodes - place in Japan with variation around major cities
-        const japanCities = [
-          { lat: 35.6762, lng: 139.6503 }, // Tokyo
-          { lat: 34.6937, lng: 135.5023 }, // Osaka
-          { lat: 35.0116, lng: 135.7681 }, // Kyoto
-          { lat: 35.4437, lng: 139.6380 }, // Yokohama
-          { lat: 43.0642, lng: 141.3469 }, // Sapporo
-        ];
-        
-        const nodeIdString = String(node.id);
-        let hash = 0;
-        for (let i = 0; i < nodeIdString.length; i++) {
-          const char = nodeIdString.charCodeAt(i);
-          hash = ((hash << 5) - hash) + char;
-          hash = hash & hash;
-        }
-        
-        const cityIndex = Math.abs(hash) % japanCities.length;
-        baseCoords = japanCities[cityIndex];
-        
-        // Small variation within Japan (±0.3 degrees for city-level precision)
-        const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 0.6; // -0.3 to +0.3 degrees
-        const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 0.6; // -0.3 to +0.3 degrees
-        
-        const newCoords = {
-          latitude: baseCoords.lat + latVariation,
-          longitude: baseCoords.lng + lngVariation,
-        };
-        
-        // Store coordinates for future use
-        nodeCoordinatesRef.current.set(node.id, newCoords);
-        saveCoordinatesToStorage();
-        console.log(`Node ${node.id} (${node.name}) generated Japanese coordinates:`, newCoords.latitude, newCoords.longitude);
-        
-        return {
-          ...node,
-          ...newCoords,
-        };
-      }
-      
-      // General fallback for all other nodes (including Gvbc nodes)
-      const cityCoordinates = [
-        { lat: 35.6762, lng: 139.6503 }, // Tokyo
-        { lat: 40.7128, lng: -74.0060 }, // New York
-        { lat: 51.5074, lng: -0.1278 },  // London
-        { lat: 48.8566, lng: 2.3522 },   // Paris
-        { lat: 52.5200, lng: 13.4050 },  // Berlin
-        { lat: 37.7749, lng: -122.4194 }, // San Francisco
-        { lat: 55.7558, lng: 37.6176 },  // Moscow
-        { lat: 22.3193, lng: 114.1694 }, // Hong Kong
-        { lat: 1.3521, lng: 103.8198 },  // Singapore
-        { lat: -33.8688, lng: 151.2093 }, // Sydney
-        { lat: 59.3293, lng: 18.0686 },  // Stockholm
-        { lat: 60.1695, lng: 24.9354 },  // Helsinki
-        { lat: 55.6761, lng: 12.5683 },  // Copenhagen
-        { lat: 47.3769, lng: 8.5417 },   // Zurich
-        { lat: 50.1109, lng: 8.6821 },   // Frankfurt
-      ];
-      
-      // Create a simple hash from node ID for consistent positioning
+      // Fallback: Simple random coordinates with geographical consistency
+      // Use a simple seed-based approach for consistent but geographically reasonable coordinates
       const nodeIdString = String(node.id);
-      let hash = 0;
+      let seed = 0;
       for (let i = 0; i < nodeIdString.length; i++) {
         const char = nodeIdString.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
+        seed = ((seed << 5) - seed) + char;
+        seed = seed & seed; // Convert to 32bit integer
       }
       
-      // Use hash to select city and create consistent variation
-      const cityIndex = Math.abs(hash) % cityCoordinates.length;
-      const selectedCity = cityCoordinates[cityIndex];
+      // Use absolute seed for consistent positive values
+      const absSeed = Math.abs(seed);
       
-      // Create smaller consistent variation based on hash (reduced from ±5 to ±1 degrees)
-      const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 1; // -0.5 to +0.5 degrees
-      const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 1; // -0.5 to +0.5 degrees
+      // Generate reasonably distributed global coordinates
+      // Latitude: -60 to +70 (avoid extreme polar regions)
+      // Longitude: -180 to +180 (full global range)
+      const latitude = -60 + ((absSeed % 1000) / 1000) * 130; // Range: -60 to +70
+      const longitude = -180 + ((absSeed >> 10) % 1000) / 1000 * 360; // Range: -180 to +180
       
       const newCoords = {
-        latitude: selectedCity.lat + latVariation,
-        longitude: selectedCity.lng + lngVariation,
+        latitude: latitude,
+        longitude: longitude,
       };
       
       // Store coordinates for future use
       nodeCoordinatesRef.current.set(node.id, newCoords);
       saveCoordinatesToStorage();
-      console.log(`Node ${node.id} (${node.name}) generated global coordinates:`, newCoords.latitude, newCoords.longitude);
+      console.log(`Node ${node.id} (${node.name}) generated fallback coordinates:`, newCoords.latitude, newCoords.longitude);
       
       return {
         ...node,

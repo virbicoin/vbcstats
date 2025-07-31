@@ -17,3 +17,13 @@ stats.json
 next-env.d.ts
 .env*
 tsconfig.tsbuildinfo
+.vscode/
+
+# Build and runtime files
+*.log
+.cache/
+.vercel/
+.turbo/
+
+# OS specific files
+Thumbs.db

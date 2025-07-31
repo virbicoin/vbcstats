@@ -352,34 +352,7 @@ setInterval(() => {
       return; // Skip disconnected clients
     }
     
-    const nodesData = allNodes.map(node => ({
-      id: node.id,
-      name: node.info?.name || node.id,
-      type: node.info?.type || node.info?.client || 'unknown',
-      info: node.info || {}, // Include the info object for client access
-      geo: node.geo || null, // Include geo information
-      latitude: node.latitude || null, // Include latitude from geoip
-      longitude: node.longitude || null, // Include longitude from geoip
-      latency: node.stats?.latency || 0,
-      mining: node.stats?.mining || false,
-      peers: node.stats?.peers || 0,
-      pending: node.stats?.pending || 0,
-      block: node.stats?.block?.number || 0,
-      blockHash: node.stats?.block?.hash || '',
-      totalDifficulty: node.stats?.block?.totalDifficulty || 0,
-      transactions: node.stats?.block?.transactions?.length || 0,
-      uncles: node.stats?.block?.uncles?.length || 0,
-      lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
-      propagation: node.stats?.block?.propagation || 0,
-      propagationAvg: node.stats?.propagationAvg || 0,
-      uptime: node.stats?.uptime ? 
-        (typeof node.stats.uptime === 'number' ? 
-          { lastStatus: node.stats.uptime } : 
-          node.stats.uptime
-        ) : 
-        (node.uptime || { up: 0, down: 0, lastStatus: 100 })
-    }));
-    
+    // 統計情報のみを定期的に更新（ノード一覧は初期化時のみ）
     const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
     const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
     const totalDifficulty = calculateDifficulty(allNodes);
@@ -400,9 +373,9 @@ setInterval(() => {
       lastBlock: { value: lastBlock }
     };
     
-    spark.write({ action: 'update', data: { nodes: nodesData, stats: updatedStats } });
+    spark.write({ action: 'stats-update', data: { stats: updatedStats } });
   });
-}, 1000);
+}, 5000); // 5秒間隔に変更（1秒から変更）
 
 // Charts callback
 Nodes.setChartsCallback((err, charts) => {
@@ -520,67 +493,48 @@ apiPrimus.on('connection', (spark) => {
         const allNodes = Nodes.all();
         console.log('Raw nodes from collection:', allNodes.length);
         
-        // Convert Node objects to plain objects and extract stats
-        const nodesData = allNodes.map(node => ({
-          id: node.id,
-          name: node.info?.name || node.id,
-          type: node.info?.type || node.info?.client || 'unknown',
-          info: node.info || {}, // Include the info object for client access
-          geo: node.geo || null, // Include geo information
-          latitude: node.latitude || null, // Include latitude from geoip
-          longitude: node.longitude || null, // Include longitude from geoip
-          latency: node.stats?.latency || 0,
-          mining: node.stats?.mining || false,
-          peers: node.stats?.peers || 0,
-          pending: node.stats?.pending || 0,
-          block: node.stats?.block?.number || 0,
-          blockHash: node.stats?.block?.hash || '',
-          totalDifficulty: node.stats?.block?.totalDifficulty || 0,
-          transactions: node.stats?.block?.transactions?.length || 0,
-          uncles: node.stats?.block?.uncles?.length || 0,
-          lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
-          propagation: node.stats?.block?.propagation || 0,
-          propagationAvg: node.stats?.propagationAvg || 0,
-          uptime: node.stats?.uptime ? 
-            (typeof node.stats.uptime === 'number' ? 
-              { lastStatus: node.stats.uptime } : 
-              node.stats.uptime
+        // 新しいノードが追加された時のみ、そのノードの情報を送信
+        const newNodeData = {
+          id: addedNode.id,
+          name: addedNode.info?.name || addedNode.id,
+          type: addedNode.info?.type || addedNode.info?.client || 'unknown',
+          info: addedNode.info || {},
+          geo: addedNode.geo || null,
+          latitude: addedNode.latitude || null,
+          longitude: addedNode.longitude || null,
+          latency: addedNode.stats?.latency || 0,
+          mining: addedNode.stats?.mining || false,
+          peers: addedNode.stats?.peers || 0,
+          pending: addedNode.stats?.pending || 0,
+          block: addedNode.stats?.block?.number || 0,
+          blockHash: addedNode.stats?.block?.hash || '',
+          totalDifficulty: addedNode.stats?.block?.totalDifficulty || 0,
+          transactions: addedNode.stats?.block?.transactions?.length || 0,
+          uncles: addedNode.stats?.block?.uncles?.length || 0,
+          lastBlockTime: calculateNodeBlockTime(addedNode),
+          propagation: addedNode.stats?.block?.propagation || 0,
+          propagationAvg: addedNode.stats?.propagationAvg || 0,
+          uptime: addedNode.stats?.uptime ? 
+            (typeof addedNode.stats.uptime === 'number' ? 
+              { lastStatus: addedNode.stats.uptime } : 
+              addedNode.stats.uptime
             ) : 
-            (node.uptime || { up: 0, down: 0, lastStatus: 100 })
-        }));
+            (addedNode.uptime || { up: 0, down: 0, lastStatus: 100 })
+        };
         
-                // Calculate network statistics based on actual node data and history
+        // 統計情報も更新
         const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
         const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
-        
-        // Calculate avgBlockTime using calculation function (always 13 seconds for GVBC)
         const avgBlockTime = calculateAvgBlockTime(allNodes);
-        
-        // Calculate difficulty from latest block (like original implementation)
-        let totalDifficulty = 94000000000; // Default
-        if (activeNodes.length > 0) {
-          const difficulties = activeNodes
-            .map(node => node.stats?.block?.difficulty || node.stats?.block?.totalDifficulty)
-            .filter(diff => diff && diff > 0);
-          
-          if (difficulties.length > 0) {
-            totalDifficulty = Math.max(...difficulties);
-          }
-        }
-        
-        // Calculate avgNetworkHashrate: difficulty / avgBlockTime (like original implementation)
-        // This is the core formula from lib/history.js getAvgHashrate()
-        const totalHashrate = Math.round(totalDifficulty / avgBlockTime);
-        
+        const totalDifficulty = calculateDifficulty(allNodes);
+        const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
         const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
-        const avgGasPrice = 1000000000; // 1 Gwei for GVBC
-        
-        // Calculate lastBlock time (seconds since last block)
+        const avgGasPrice = calculateAvgGasPrice(allNodes);
         const lastBlockTime = Math.floor(Math.random() * Math.ceil(avgBlockTime));
         
-        const stats = {
+        const updatedStats = {
           bestBlock: { value: bestBlock },
-          activeNodes: { value: allNodes.length }, // Show all connected nodes as active
+          activeNodes: { value: allNodes.length },
           avgBlockTime: { value: avgBlockTime },
           difficulty: { value: Math.round(totalDifficulty) },
           avgNetworkHashrate: { value: Math.round(totalHashrate), unit: 'H/s' },
@@ -589,6 +543,14 @@ apiPrimus.on('connection', (spark) => {
           gasLimit: { value: 8000000 },
           lastBlock: { value: lastBlockTime }
         };
+        
+        // 新しいノードの追加を通知
+        clientPrimus.forEach((clientSpark) => {
+          clientSpark.write({ action: 'node-added', data: { 
+            node: newNodeData,
+            stats: updatedStats 
+          }});
+        });
       }
     });
   });
@@ -600,8 +562,33 @@ apiPrimus.on('connection', (spark) => {
     Nodes.update(spark.nodeId, data, (err, info) => {
       if (!err && info) {
         console.log('Update processed, broadcasting:', info.id);
+        // 個別のノード更新のみ送信（全ノード一覧は送信しない）
         clientPrimus.forEach((clientSpark) => {
-          clientSpark.write({ action: 'update', data: info });
+          clientSpark.write({ action: 'update', data: {
+            nodeId: spark.nodeId,
+            nodeUpdate: {
+              id: info.id,
+              name: info.info?.name || info.id,
+              latency: info.stats?.latency || 0,
+              mining: info.stats?.mining || false,
+              peers: info.stats?.peers || 0,
+              pending: info.stats?.pending || 0,
+              block: info.stats?.block?.number || 0,
+              blockHash: info.stats?.block?.hash || '',
+              totalDifficulty: info.stats?.block?.totalDifficulty || 0,
+              transactions: info.stats?.block?.transactions?.length || 0,
+              uncles: info.stats?.block?.uncles?.length || 0,
+              lastBlockTime: calculateNodeBlockTime(info),
+              propagation: info.stats?.block?.propagation || 0,
+              propagationAvg: info.stats?.propagationAvg || 0,
+              uptime: info.stats?.uptime ? 
+                (typeof info.stats.uptime === 'number' ? 
+                  { lastStatus: info.stats.uptime } : 
+                  info.stats.uptime
+                ) : 
+                (info.uptime || { up: 0, down: 0, lastStatus: 100 })
+            }
+          }});
         });
       } else if (err) {
         console.error('Update error:', err);
@@ -753,34 +740,20 @@ apiPrimus.on('connection', (spark) => {
         };
         
         clientPrimus.forEach((clientSpark) => {
+          // ブロック更新時は統計情報と該当ノードの情報のみ送信
           clientSpark.write({ action: 'block', data: { 
-            nodes: allNodes.map(node => ({
-              id: node.id,
-              name: node.info?.name || node.id,
-              type: node.info?.type || node.info?.client || 'unknown',
-              info: node.info || {}, // Include the info object for client access
-              geo: node.geo || null, // Include geo information
-              latitude: node.latitude || null, // Include latitude from geoip
-              longitude: node.longitude || null, // Include longitude from geoip
-              latency: node.stats?.latency || 0,
-              mining: node.stats?.mining || false,
-              peers: node.stats?.peers || 0,
-              pending: node.stats?.pending || 0,
-              block: node.stats?.block?.number || 0,
-              blockHash: node.stats?.block?.hash || '',
-              totalDifficulty: node.stats?.block?.totalDifficulty || 0,
-              transactions: node.stats?.block?.transactions?.length || 0,
-              uncles: node.stats?.block?.uncles?.length || 0,
-              lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
-              propagation: node.stats?.block?.propagation || 0,
-              propagationAvg: node.stats?.propagationAvg || 0,
-              uptime: node.stats?.uptime ? 
-                (typeof node.stats.uptime === 'number' ? 
-                  { lastStatus: node.stats.uptime } : 
-                  node.stats.uptime
-                ) : 
-                (node.uptime || { up: 0, down: 0, lastStatus: 100 })
-            })), 
+            nodeId: spark.nodeId,
+            nodeUpdate: {
+              id: info.id,
+              block: info.stats?.block?.number || 0,
+              blockHash: info.stats?.block?.hash || '',
+              totalDifficulty: info.stats?.block?.totalDifficulty || 0,
+              transactions: info.stats?.block?.transactions?.length || 0,
+              uncles: info.stats?.block?.uncles?.length || 0,
+              lastBlockTime: calculateNodeBlockTime(info),
+              propagation: info.stats?.block?.propagation || 0,
+              propagationAvg: info.stats?.propagationAvg || 0
+            },
             stats: updatedStats 
           }});
           
@@ -807,8 +780,15 @@ apiPrimus.on('connection', (spark) => {
     Nodes.updatePending(spark.nodeId, data.stats || data, (err, info) => {
       if (!err && info) {
         console.log('Pending processed, broadcasting:', info.id);
+        // 個別のノード更新のみ送信
         clientPrimus.forEach((clientSpark) => {
-          clientSpark.write({ action: 'pending', data: info });
+          clientSpark.write({ action: 'pending', data: {
+            nodeId: spark.nodeId,
+            nodeUpdate: {
+              id: info.id,
+              pending: info.stats?.pending || 0
+            }
+          }});
         });
       } else if (err) {
         console.error('Pending error:', err);
@@ -863,34 +843,8 @@ apiPrimus.on('connection', (spark) => {
         };
         
         clientPrimus.forEach((clientSpark) => {
+          // 統計更新時は統計情報のみ送信（ノード一覧は送信しない）
           clientSpark.write({ action: 'stats', data: { 
-            nodes: allNodes.map(node => ({
-              id: node.id,
-              name: node.info?.name || node.id,
-              type: node.info?.type || node.info?.client || 'unknown',
-              info: node.info || {}, // Include the info object for client access
-              geo: node.geo || null, // Include geo information
-              latitude: node.latitude || null, // Include latitude from geoip
-              longitude: node.longitude || null, // Include longitude from geoip
-              latency: node.stats?.latency || 0,
-              mining: node.stats?.mining || false,
-              peers: node.stats?.peers || 0,
-              pending: node.stats?.pending || 0,
-              block: node.stats?.block?.number || 0,
-              blockHash: node.stats?.block?.hash || '',
-              totalDifficulty: node.stats?.block?.totalDifficulty || 0,
-              transactions: node.stats?.block?.transactions?.length || 0,
-              uncles: node.stats?.block?.uncles?.length || 0,
-              lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
-              propagation: node.stats?.block?.propagation || 0,
-              propagationAvg: node.stats?.propagationAvg || 0,
-              uptime: node.stats?.uptime ? 
-                (typeof node.stats.uptime === 'number' ? 
-                  { lastStatus: node.stats.uptime } : 
-                  node.stats.uptime
-                ) : 
-                (node.uptime || { up: 0, down: 0, lastStatus: 100 })
-            })), 
             stats: updatedStats 
           }});
         });

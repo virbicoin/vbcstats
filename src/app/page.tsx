@@ -215,45 +215,39 @@ function HomePage() {
 
   // Function to add stable coordinates to nodes based on server data or IP
   const addCoordinatesToNodes = useCallback(async (nodesList: Node[]): Promise<Node[]> => {
-    console.log('Processing nodes for coordinates:', nodesList.length, 'nodes');
-    console.log('Current stored coordinates count:', nodeCoordinatesRef.current.size);
-    
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
-      // Priority 1: If node has geo.ll data from server (geoip-lite), use it
+      // Priority 1: Check if we have stored coordinates for this node first
+      const storedCoords = nodeCoordinatesRef.current.get(node.id);
+      if (storedCoords) {
+        return {
+          ...node,
+          latitude: storedCoords.latitude,
+          longitude: storedCoords.longitude,
+        };
+      }
+
+      // Priority 2: If node has geo.ll data from server (geoip-lite), use it
       if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
         const coords = {
           latitude: node.geo.ll[0],
           longitude: node.geo.ll[1]
         };
-        // Store in persistent map for future reference
+        // Store in persistent map for future reference (new node only)
         nodeCoordinatesRef.current.set(node.id, coords);
-        console.log(`Node ${node.id} (${node.name}) has server geo coordinates:`, coords.latitude, coords.longitude);
         return {
           ...node,
           ...coords
         };
       }
       
-      // Priority 2: If node already has coordinates from server, use them
+      // Priority 3: If node already has coordinates from server, use them
       if (node.latitude && node.longitude) {
-        // Store in persistent map for future reference
+        // Store in persistent map for future reference (new node only)
         nodeCoordinatesRef.current.set(node.id, { 
           latitude: node.latitude, 
           longitude: node.longitude 
         });
-        console.log(`Node ${node.id} (${node.name}) has server coordinates:`, node.latitude, node.longitude);
         return node;
-      }
-      
-      // Priority 3: Check if we have stored coordinates for this node
-      const storedCoords = nodeCoordinatesRef.current.get(node.id);
-      if (storedCoords) {
-        console.log(`Node ${node.id} (${node.name}) using stored coordinates:`, storedCoords.latitude, storedCoords.longitude);
-        return {
-          ...node,
-          latitude: storedCoords.latitude,
-          longitude: storedCoords.longitude,
-        };
       }
       
       // Priority 4: Try to get coordinates from IP address if available
@@ -262,9 +256,8 @@ function HomePage() {
         try {
           const coords = await getCoordinatesFromIP(ip);
           if (coords) {
-            // Store coordinates for future use
+            // Store coordinates for future use (new node only)
             nodeCoordinatesRef.current.set(node.id, coords);
-            console.log(`Node ${node.id} (${node.name}) got GeoIP-based coordinates for ${ip}:`, coords.latitude, coords.longitude);
             return {
               ...node,
               ...coords,
@@ -311,9 +304,8 @@ function HomePage() {
         longitude: selectedCity.lng + lngVariation,
       };
       
-      // Store coordinates for future use
+      // Store coordinates for future use (new node only)
       nodeCoordinatesRef.current.set(node.id, newCoords);
-      console.log(`Node ${node.id} (${node.name}) generated fallback coordinates:`, newCoords.latitude, newCoords.longitude);
       
       return {
         ...node,
@@ -577,22 +569,26 @@ function HomePage() {
             
             // Check if bestBlock changed before resetting timer
             const newBestBlock = typedMessage.data.stats['bestBlock']?.value;
-            if (newBestBlock && typeof newBestBlock === 'number' && prevBestBlock !== null && newBestBlock !== prevBestBlock) {
-              // Try to find the most recent block timestamp from nodes
-              const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
-                node.blockTimestamp && typeof node.blockTimestamp === 'number'
-              );
-              if (nodesWithTimestamp && nodesWithTimestamp.length > 0) {
-                const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
-                const maxTimestamp = Math.max(...timestamps);
-                if (maxTimestamp > 0) {
-                  setLastBlockTimestamp(maxTimestamp);
-                  // Calculate initial time difference
-                  const initialTimeDiff = Math.floor((Date.now() - maxTimestamp) / 1000);
-                  setLastBlockTime(initialTimeDiff);
+            if (newBestBlock && typeof newBestBlock === 'number') {
+              const shouldResetTimer = prevBestBlock === null || newBestBlock !== prevBestBlock;
+              
+              if (shouldResetTimer) {
+                // Try to find the most recent block timestamp from nodes
+                const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
+                  node.blockTimestamp && typeof node.blockTimestamp === 'number'
+                );
+                if (nodesWithTimestamp && nodesWithTimestamp.length > 0) {
+                  const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
+                  const maxTimestamp = Math.max(...timestamps);
+                  if (maxTimestamp > 0) {
+                    setLastBlockTimestamp(maxTimestamp);
+                    // Calculate initial time difference
+                    const initialTimeDiff = Math.floor((Date.now() - maxTimestamp) / 1000);
+                    setLastBlockTime(initialTimeDiff);
+                  }
                 }
+                setPrevBestBlock(newBestBlock);
               }
-              setPrevBestBlock(newBestBlock);
             }
             
             setStats(typedMessage.data.stats);
@@ -755,7 +751,7 @@ function HomePage() {
     };
    
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addCoordinatesToNodes, prevBestBlock, setPrevBestBlock]); // lastBlockTime is intentionally omitted to prevent infinite loop
+  }, [addCoordinatesToNodes, prevBestBlock]); // lastBlockTime is intentionally omitted to prevent infinite loop
 
   const statCards = [
     { id: 'bestBlock', icon: <FaCube className="text-blue-400" />, label: "Best Block" },

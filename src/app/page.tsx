@@ -216,23 +216,12 @@ function HomePage() {
   // Function to add stable coordinates to nodes based on server data or IP
   const addCoordinatesToNodes = useCallback(async (nodesList: Node[]): Promise<Node[]> => {
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
-      // Priority 1: Check if we have stored coordinates for this node first
-      const storedCoords = nodeCoordinatesRef.current.get(node.id);
-      if (storedCoords) {
-        return {
-          ...node,
-          latitude: storedCoords.latitude,
-          longitude: storedCoords.longitude,
-        };
-      }
-
-      // Priority 2: If node has geo.ll data from server (geoip-lite), use it
       if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
         const coords = {
           latitude: node.geo.ll[0],
           longitude: node.geo.ll[1]
         };
-        // Store in persistent map for future reference (new node only)
+        // Store in persistent map for future reference
         nodeCoordinatesRef.current.set(node.id, coords);
         return {
           ...node,
@@ -242,7 +231,7 @@ function HomePage() {
       
       // Priority 3: If node already has coordinates from server, use them
       if (node.latitude && node.longitude) {
-        // Store in persistent map for future reference (new node only)
+        // Store in persistent map for future reference
         nodeCoordinatesRef.current.set(node.id, { 
           latitude: node.latitude, 
           longitude: node.longitude 
@@ -256,7 +245,7 @@ function HomePage() {
         try {
           const coords = await getCoordinatesFromIP(ip);
           if (coords) {
-            // Store coordinates for future use (new node only)
+            // Store coordinates for future use
             nodeCoordinatesRef.current.set(node.id, coords);
             return {
               ...node,
@@ -304,7 +293,7 @@ function HomePage() {
         longitude: selectedCity.lng + lngVariation,
       };
       
-      // Store coordinates for future use (new node only)
+      // Store coordinates for future use
       nodeCoordinatesRef.current.set(node.id, newCoords);
       
       return {

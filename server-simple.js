@@ -111,6 +111,23 @@ let nodeBlockHistory = new Map(); // nodeId -> Map(blockNumber -> arrivalTime)
 let propagationHistory = new Map();
 const MAX_PROPAGATION_HISTORY = 20; // Keep last 20 propagations per node
 
+// Global best block tracking to prevent stale data
+let globalBestBlock = 0;
+
+// Calculate the current best block across all nodes consistently
+function calculateBestBlock(nodes) {
+  if (!nodes || nodes.length === 0) return globalBestBlock;
+  
+  const bestBlock = Math.max(...nodes.map(node => node.stats?.block?.number || 0), 0);
+  
+  // Only update global best block if the new value is higher
+  if (bestBlock > globalBestBlock) {
+    globalBestBlock = bestBlock;
+  }
+  
+  return globalBestBlock;
+}
+
 // Add block to history
 function addBlockToHistory(blockNumber, timestamp) {
   // Handle corrupted/truncated timestamps from VirBiCoin API
@@ -214,6 +231,40 @@ function calculateAvgPropagation(nodeId) {
   
   console.log(`Calculated avg propagation for ${nodeId}: ${avg}ms (from ${nodeHistory.length} samples)`);
   return avg;
+}
+
+// Calculate the last block time (seconds since most recent block)
+function calculateLastBlockTime(allNodes) {
+  if (!allNodes || allNodes.length === 0) return 0;
+  
+  // Find the most recent block timestamp across all nodes
+  let mostRecentTimestamp = 0;
+  for (const node of allNodes) {
+    if (node.stats?.block?.timestamp) {
+      let blockTimestamp = node.stats.block.timestamp;
+      
+      // Handle corrupted/truncated timestamps
+      if (blockTimestamp < 1e6) {
+        continue; // Skip invalid timestamps
+      }
+      // Convert to milliseconds if needed
+      if (blockTimestamp < 10000000000) {
+        blockTimestamp = blockTimestamp * 1000;
+      }
+      
+      if (blockTimestamp > mostRecentTimestamp) {
+        mostRecentTimestamp = blockTimestamp;
+      }
+    }
+  }
+  
+  if (mostRecentTimestamp === 0) return 0;
+  
+  // Calculate seconds since most recent block
+  const currentTime = Date.now();
+  const secondsSinceLastBlock = Math.floor((currentTime - mostRecentTimestamp) / 1000);
+  
+  return Math.max(0, secondsSinceLastBlock);
 }
 
 // Calculate average block time from block history
@@ -354,12 +405,13 @@ setInterval(() => {
     
     // 統計情報のみを定期的に更新（ノード一覧は初期化時のみ）
     const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-    const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+    const bestBlock = calculateBestBlock(allNodes); // Use consistent bestBlock calculation
     const totalDifficulty = calculateDifficulty(allNodes);
     const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
     const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
     const avgGasPrice = calculateAvgGasPrice(allNodes);
-    const lastBlock = bestBlock > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTime)) : 0;
+    const lastBlock = calculateLastBlockTime(allNodes); // Calculate actual last block time in seconds
+    const updateTime = Date.now(); // Add millisecond timestamp like Nodes
     
     const updatedStats = {
       bestBlock: { value: bestBlock },
@@ -370,12 +422,13 @@ setInterval(() => {
       uncles: { value: totalUncles },
       gasPrice: { value: avgGasPrice },
       gasLimit: { value: 8000000 },
-      lastBlock: { value: lastBlock }
+      lastBlock: { value: lastBlock },
+      updateTime: updateTime // Millisecond precision timestamp
     };
     
     spark.write({ action: 'update', data: { stats: updatedStats } });
   });
-}, 5000); // 5秒間隔に変更（1秒から変更）
+}, 1000); // 1秒間隔でポーリング
 
 // Charts callback
 Nodes.setChartsCallback((err, charts) => {
@@ -524,13 +577,13 @@ apiPrimus.on('connection', (spark) => {
         
         // 統計情報も更新
         const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-        const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+        const bestBlock = calculateBestBlock(allNodes); // Use consistent bestBlock calculation
         const avgBlockTime = calculateAvgBlockTime(allNodes);
         const totalDifficulty = calculateDifficulty(allNodes);
         const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
         const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
         const avgGasPrice = calculateAvgGasPrice(allNodes);
-        const lastBlockTime = Math.floor(Math.random() * Math.ceil(avgBlockTime));
+        const lastBlockTime = calculateLastBlockTime(allNodes);
         
         const updatedStats = {
           bestBlock: { value: bestBlock },
@@ -635,33 +688,60 @@ apiPrimus.on('connection', (spark) => {
       
       // Check if this specific node has seen this block before
       if (nodeBlocks.has(data.block.number)) {
-        // Node already sent this block - no propagation calculation needed
+        // Node already sent this block - skip processing entirely
         console.log('Node', spark.nodeId, 'already sent block', data.block.number, '- skipping duplicate');
-        return;
-      }
-      
-      // Find the earliest arrival of this block from any node (for propagation reference)
-      const existingBlock = blockHistory.find(b => b.number === data.block.number);
-      
-      if (existingBlock) {
-        // Block exists from another node - calculate propagation from first arrival
-        propagationMs = Math.max(0, blockReceiveTime - existingBlock.firstArrival);
-        arrivedTime = existingBlock.firstArrival;
-        console.log('Block', data.block.number, 'from', spark.nodeId, '- propagation from first arrival:', propagationMs, 'ms');
+        return; // Skip all further processing for duplicate blocks
       } else {
-        // First time seeing this block from any node - propagation is 0, this is the reference time
-        propagationMs = 0;
-        arrivedTime = blockReceiveTime;
-        console.log('Block', data.block.number, 'first arrival from', spark.nodeId, '- reference time set');
-      }
-      
-      // Record this block for this specific node
-      nodeBlocks.set(data.block.number, blockReceiveTime);
-      
-      // Clean old entries (keep last 50 blocks per node)
-      if (nodeBlocks.size > 50) {
-        const oldestBlock = Math.min(...nodeBlocks.keys());
-        nodeBlocks.delete(oldestBlock);
+        // Find the earliest arrival of this block from any node (for propagation reference)
+        const existingBlock = blockHistory.find(b => b.number === data.block.number);
+        
+        if (existingBlock) {
+          // Block exists from another node - calculate propagation from first arrival
+          propagationMs = Math.max(0, blockReceiveTime - existingBlock.firstArrival);
+          arrivedTime = existingBlock.firstArrival;
+          console.log('Block', data.block.number, 'from', spark.nodeId, '- propagation from first arrival:', propagationMs, 'ms');
+        } else {
+          // First time seeing this block from any node - propagation is 0, this is the reference time
+          propagationMs = 0;
+          arrivedTime = blockReceiveTime;
+          console.log('Block', data.block.number, 'first arrival from', spark.nodeId, '- reference time set');
+          
+          // Immediately update Best Block for first arrival (using millisecond precision like Nodes)
+          // Update global best block with the new block number
+          if (data.block.number > globalBestBlock) {
+            globalBestBlock = data.block.number;
+          }
+          
+          const newBestBlock = globalBestBlock;
+          
+          // Send immediate Best Block update to all clients with precise timing
+          const immediateUpdateTime = Date.now();
+          clientPrimus.forEach((clientSpark) => {
+            clientSpark.write({ 
+              action: 'stats', 
+              data: { 
+                stats: {
+                  bestBlock: { value: newBestBlock },
+                  updateTime: immediateUpdateTime // Add millisecond timestamp like Nodes
+                }
+              }
+            });
+          });
+          
+          console.log(`BEST BLOCK updated immediately for first arrival: ${newBestBlock} at ${immediateUpdateTime}ms`);
+        }
+        
+        // Record this block for this specific node
+        nodeBlocks.set(data.block.number, blockReceiveTime);
+        
+        // Clean old entries (keep last 50 blocks per node)
+        if (nodeBlocks.size > 50) {
+          const oldestBlock = Math.min(...nodeBlocks.keys());
+          nodeBlocks.delete(oldestBlock);
+        }
+        
+        // Store block in global history with first arrival time
+        addBlockToHistoryWithArrival(data.block.number, blockTimestampMs, arrivedTime);
       }
       
       // Add propagation data to block (in milliseconds)
@@ -678,9 +758,6 @@ apiPrimus.on('connection', (spark) => {
         receiveTime: blockReceiveTime,
         propagationMs: propagationMs
       });
-      
-      // Store block in global history with first arrival time
-      addBlockToHistoryWithArrival(data.block.number, blockTimestampMs, arrivedTime);
     }
     
     if (!spark.auth) return;
@@ -702,7 +779,7 @@ apiPrimus.on('connection', (spark) => {
         // Recalculate and broadcast updated network statistics based on actual data
         const allNodes = Nodes.all();
         const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-        const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+        const bestBlock = calculateBestBlock(allNodes); // Use consistent bestBlock calculation
         
         // Calculate avgBlockTime using calculation function (from block history)
         const avgBlockTime = calculateAvgBlockTime(allNodes);
@@ -724,7 +801,7 @@ apiPrimus.on('connection', (spark) => {
         
         const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
         const avgGasPrice = 1000000000; // Always 1 Gwei for GVBC
-        const lastBlock = bestBlock > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTime)) : 0;
+        const lastBlock = calculateLastBlockTime(allNodes);
         
         const updatedStats = {
           bestBlock: { value: bestBlock },
@@ -802,7 +879,7 @@ apiPrimus.on('connection', (spark) => {
         // Recalculate and broadcast updated network statistics based on actual data
         const allNodes = Nodes.all();
         const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-        const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+        const bestBlock = calculateBestBlock(allNodes); // Use consistent bestBlock calculation
         
         // Calculate avgBlockTime using calculation function (always 13 seconds for GVBC)
         const avgBlockTime = calculateAvgBlockTime(allNodes);
@@ -824,7 +901,7 @@ apiPrimus.on('connection', (spark) => {
         
         const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
         const avgGasPrice = 1000000000; // Always 1 Gwei for GVBC
-        const lastBlock = bestBlock > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTime)) : 0;
+        const lastBlock = calculateLastBlockTime(allNodes);
         
         const updatedStats = {
           bestBlock: { value: bestBlock },
@@ -861,7 +938,7 @@ apiPrimus.on('connection', (spark) => {
     });
   });
 
-  spark.on('node-ping', (data) => {
+  spark.on('node-ping', () => {
     if (!spark.auth) return;
     spark.emit('node-pong', { serverTime: Date.now() });
   });
@@ -889,6 +966,27 @@ apiPrimus.on('connection', (spark) => {
 // Handle client connections
 clientPrimus.on('connection', (spark) => {
   console.log('Client connected to /primus');
+  
+  // Development environment: Limit client connections to prevent accumulation
+  if (process.env.NODE_ENV === 'development') {
+    const activeConnections = clientPrimus.connections;
+    console.log(`[DEV] Total active client connections: ${Object.keys(activeConnections).length}`);
+    
+    // If too many connections in development, close older ones
+    const connectionIds = Object.keys(activeConnections);
+    if (connectionIds.length > 3) { // Allow max 3 connections in development
+      console.log(`[DEV] Too many connections (${connectionIds.length}), closing oldest ones`);
+      // Close older connections (keep the newest 2)
+      const connectionsToClose = connectionIds.slice(0, -2);
+      connectionsToClose.forEach(id => {
+        if (activeConnections[id] && activeConnections[id] !== spark) {
+          console.log(`[DEV] Closing old connection: ${id}`);
+          activeConnections[id].end();
+        }
+      });
+    }
+  }
+  
   console.log('Initial connection readyState:', spark.readyState);
   console.log('Connection ID:', spark.id);
   console.log('Remote address:', spark.address);
@@ -941,7 +1039,7 @@ clientPrimus.on('connection', (spark) => {
     
     // Calculate network statistics from actual data
     const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-    const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+    const bestBlock = calculateBestBlock(allNodes); // Use consistent bestBlock calculation
     
     // Calculate actual network statistics using calculation functions
     const avgBlockTime = calculateAvgBlockTime(allNodes);
@@ -950,7 +1048,7 @@ clientPrimus.on('connection', (spark) => {
     
     const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
     const avgGasPrice = calculateAvgGasPrice(allNodes);
-    const lastBlock = bestBlock > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTime)) : 0;
+    const lastBlock = calculateLastBlockTime(allNodes);
     
     const stats = {
       bestBlock: { value: bestBlock },
@@ -996,7 +1094,7 @@ clientPrimus.on('connection', (spark) => {
   
     // Calculate network statistics from actual data using calculation functions
     const activeNodesInit = allNodesInit.filter(node => node.stats?.active || node.id);
-    const bestBlockInit = Math.max(...allNodesInit.map(node => node.stats?.block?.number || 0), 0);
+    const bestBlockInit = calculateBestBlock(allNodesInit); // Use consistent bestBlock calculation
     
     // Use actual calculation functions
     const avgBlockTimeInit = calculateAvgBlockTime(allNodesInit);
@@ -1005,7 +1103,7 @@ clientPrimus.on('connection', (spark) => {
     
     const totalUnclesInit = activeNodesInit.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
     const avgGasPriceInit = calculateAvgGasPrice(allNodesInit);
-    const lastBlockInit = bestBlockInit > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTimeInit)) : 0;
+    const lastBlockInit = calculateLastBlockTime(allNodesInit);
     
     const statsInit = {
       bestBlock: { value: bestBlockInit },
@@ -1096,10 +1194,10 @@ setInterval(() => {
     
     if (isConnected && !spark.pingCompleted) {
       try {
-        const serverTime = Date.now();
+        const serverTime = Date.now(); // Millisecond precision timestamp for unified timing
         
         // Send ping regardless of readyState for testing
-        const writeResult = spark.write({ action: 'client-ping', data: { serverTime } });
+        spark.write({ action: 'client-ping', data: { serverTime } });
         
         sentCount++;
         
@@ -1154,7 +1252,7 @@ setInterval(() => {
   
   // Calculate network statistics from actual data
   const activeNodes = allNodes.filter(node => node.stats?.active || node.id);
-  const bestBlock = Math.max(...allNodes.map(node => node.stats?.block?.number || 0), 0);
+  const bestBlock = calculateBestBlock(allNodes); // Use consistent bestBlock calculation
   
   // Calculate actual network statistics
   const avgBlockTime = calculateAvgBlockTime(allNodes);
@@ -1163,7 +1261,7 @@ setInterval(() => {
   
   const totalUncles = activeNodes.reduce((sum, node) => sum + (node.stats?.block?.uncles?.length || 0), 0);
   const avgGasPrice = calculateAvgGasPrice(allNodes);
-  const lastBlock = bestBlock > 0 ? Date.now() - (bestBlock * avgBlockTime * 1000) : 0;
+  const lastBlock = calculateLastBlockTime(allNodes);
   
   const stats = {
     bestBlock: { value: bestBlock },
@@ -1174,7 +1272,7 @@ setInterval(() => {
     uncles: { value: totalUncles },
     gasPrice: { value: avgGasPrice },
     gasLimit: { value: 8000000 },
-    lastBlock: { value: Math.floor(lastBlock / 1000) }
+    lastBlock: { value: lastBlock }
   };
   
   clientPrimus.forEach((spark) => {
@@ -1189,18 +1287,18 @@ setInterval(() => {
     console.log(`\n=== Independent Ping System ===`);
     console.log(`Active client connections for ping: ${clientPrimus.length}`);
     
-    clientPrimus.forEach((spark, index) => {
+    clientPrimus.forEach((spark) => {
       console.log(`Connection ${spark.id}: destroyed=${spark.destroyed}`);
       console.log(`  readyState=${spark.readyState}, address=${spark.address.ip}, port=${spark.address.port}`);
       
       if (spark && !spark.destroyed) {
-        const serverTime = Date.now();
+        const serverTime = Date.now(); // Millisecond precision timestamp for unified timing
         console.log(`Sending independent ping with serverTime: ${serverTime}`);
         
         try {
           console.log(`Attempting to write ping to spark with ID: ${spark.id}`);
           console.log(`Spark readyState: ${spark.readyState}`);
-          const writeResult = spark.write({ action: 'client-ping', data: { serverTime } });
+          spark.write({ action: 'client-ping', data: { serverTime } });
           console.log(`✅ Ping sent successfully, waiting for pong response...`);
           
         } catch (error) {

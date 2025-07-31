@@ -3,6 +3,25 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { FaCube, FaLayerGroup, FaClock, FaStopwatch, FaSignal, FaHashtag, FaUsers, FaMoneyBillWave } from "react-icons/fa";
 import dynamic from "next/dynamic";
 
+// Global WebSocket connection management
+declare global {
+  interface Window {
+    __VBC_WS_CONNECTION__?: {
+      [key: string]: {
+        connection: {
+          on: (event: string, callback: (data?: unknown) => void) => void;
+          emit?: (event: string, data?: unknown) => void;
+          write?: (data: unknown) => void;
+          end?: () => void;
+          destroy?: () => void;
+        };
+        status: string;
+        createdAt: number;
+      };
+    };
+  }
+}
+
 // GeoIP-lite import for server-side IP geolocation
 // Note: This will only work on the server side, so we'll use a different approach for client-side
 
@@ -103,17 +122,45 @@ const getLastBlockTimeColor = (seconds: number): string => {
 };
 
 function HomePage() {
+  // Clean up any existing connections on component initialization (development hot reload protection)
+  React.useEffect(() => {
+    const CONNECTION_KEY = 'vbc-stats-websocket-connection';
+    const CONNECTION_STATUS = 'vbc-stats-connection-status';
+    
+    // Only in development mode, clean up existing connections to prevent accumulation
+    if (process.env.NODE_ENV === 'development') {
+      const existingGlobalConnection = window.__VBC_WS_CONNECTION__?.[CONNECTION_KEY];
+      if (existingGlobalConnection) {
+        console.log('Development mode: Cleaning up existing connection from hot reload');
+        try {
+          if (existingGlobalConnection.connection.destroy) {
+            existingGlobalConnection.connection.destroy();
+          } else if (existingGlobalConnection.connection.end) {
+            existingGlobalConnection.connection.end();
+          }
+        } catch {
+          // Ignore cleanup errors
+        }
+        if (window.__VBC_WS_CONNECTION__) {
+          delete window.__VBC_WS_CONNECTION__[CONNECTION_KEY];
+        }
+        delete (window as unknown as { [key: string]: string })[CONNECTION_STATUS];
+      }
+    }
+  }, []); // Run only once on component mount
+
   const [nodes, setNodes] = useState<Node[]>([]);
   const [stats, setStats] = useState<StatsData>({});
   const [loadingStats, setLoadingStats] = useState(true);
   const [errorStats, setErrorStats] = useState("");
   const [lastBlockTime, setLastBlockTime] = useState<number>(0);
+  const [lastBlockTimestamp, setLastBlockTimestamp] = useState<number | null>(null);
   const [pageLatency, setPageLatency] = useState<number>(0);
   const [latencyRetryCount, setLatencyRetryCount] = useState<number>(0);
   const [lastValidLatency, setLastValidLatency] = useState<number>(0);
   
   // Track the previous best block value to detect actual changes
-  const [prevBestBlock, setPrevBestBlock] = useState<number | null>(null);
+  const prevBestBlockRef = useRef<number | null>(null);
   
   // Store node coordinates persistently to prevent position changes
   const nodeCoordinatesRef = useRef(new globalThis.Map<string | number, { latitude: number; longitude: number }>());
@@ -326,11 +373,19 @@ function HomePage() {
   // Last Block timer - increments every second
   useEffect(() => {
     const timer = setInterval(() => {
-      setLastBlockTime(prev => prev + 1);
+      if (lastBlockTimestamp) {
+        // Calculate elapsed time from when the block was actually created
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - lastBlockTimestamp) / 1000);
+        setLastBlockTime(Math.max(0, elapsedSeconds));
+      } else {
+        // Fallback to simple increment if timestamp is not available
+        setLastBlockTime(prev => prev + 1);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, []); // Remove lastBlockTimestamp from dependencies to prevent timer restart
 
   // Reset last block time when new block arrives - DISABLED (handled in WebSocket events)
   // useEffect(() => {
@@ -360,6 +415,61 @@ function HomePage() {
   }, []);
 
   useEffect(() => {
+    // Prevent multiple connections - use a global connection manager
+    const CONNECTION_KEY = 'vbc-stats-websocket-connection';
+    const CONNECTION_STATUS = 'vbc-stats-connection-status';
+    
+    // Check if there's already an active connection - enhanced checking
+    const existingConnection = (window as unknown as { [key: string]: unknown })[CONNECTION_KEY];
+    const existingGlobalConnection = window.__VBC_WS_CONNECTION__?.[CONNECTION_KEY];
+    const connectionStatus = (window as unknown as { [key: string]: string })[CONNECTION_STATUS];
+    
+    // First check global connection state
+    if (existingGlobalConnection?.connection && existingGlobalConnection.status === 'connected') {
+      console.log('WebSocket connection already exists in global state, reusing existing connection');
+      
+      // Verify the connection is actually active
+      try {
+        if (existingGlobalConnection.connection.write) {
+          existingGlobalConnection.connection.write({ action: 'ping' });
+          console.log('Successfully pinged existing connection');
+          return;
+        }
+      } catch {
+        console.log('Existing connection appears dead, cleaning up and creating new one');
+        // Clean up dead connection
+        if (window.__VBC_WS_CONNECTION__) {
+          delete window.__VBC_WS_CONNECTION__[CONNECTION_KEY];
+        }
+        delete (window as unknown as { [key: string]: string })[CONNECTION_STATUS];
+      }
+    }
+    
+    // Also check legacy connection tracking
+    if (existingConnection && connectionStatus === 'connected') {
+      console.log('WebSocket connection already exists and is connected, skipping initialization');
+      return;
+    }
+    
+    if (connectionStatus === 'connecting') {
+      console.log('WebSocket connection is already being established, skipping initialization');
+      return;
+    }
+    
+    // Mark that we're creating a connection
+    (window as unknown as { [key: string]: string })[CONNECTION_STATUS] = 'connecting';
+    console.log('Initializing new WebSocket connection');
+    
+    // Prevent multiple connections in development mode
+    let primusConnection: {
+      on: (event: string, callback: (data?: unknown) => void) => void;
+      emit?: (event: string, data?: unknown) => void;
+      write?: (data: unknown) => void;
+      end?: () => void;
+      destroy?: () => void;
+    } | null = null;
+    let scriptElement: HTMLScriptElement | null = null;
+    
     // Determine the appropriate server URL based on environment
     const customWsUrl = process.env['NEXT_PUBLIC_WS_URL'];
     const isProduction = process.env.NODE_ENV === 'production';
@@ -385,9 +495,9 @@ function HomePage() {
     }
     
     // Load Primus client library from server
-    const script = document.createElement('script');
-    script.src = `${baseUrl}/primus/primus.js`;
-    script.onload = () => {
+    scriptElement = document.createElement('script');
+    scriptElement.src = `${baseUrl}/primus/primus.js`;
+    scriptElement.onload = () => {
       console.log('Primus library loaded from:', baseUrl);
       
       // Check if Primus is available
@@ -399,22 +509,35 @@ function HomePage() {
       
       try {
         const PrimusConstructor = (window as unknown as { Primus: new (url: string) => unknown }).Primus;
-        const primus = new PrimusConstructor(wsUrl) as {
+        primusConnection = new PrimusConstructor(wsUrl) as {
           on: (event: string, callback: (data?: unknown) => void) => void;
           emit?: (event: string, data?: unknown) => void;
           write?: (data: unknown) => void;
+          end?: () => void;
+          destroy?: () => void;
         };
 
-        primus.on('open', () => {
+        primusConnection.on('open', () => {
           console.log('WebSocket connection opened to:', wsUrl);
           setErrorStats("");
+          // Mark connection as established in global state
+          if (!window.__VBC_WS_CONNECTION__) {
+            window.__VBC_WS_CONNECTION__ = {};
+          }
+          if (primusConnection) {
+            window.__VBC_WS_CONNECTION__[CONNECTION_KEY] = {
+              connection: primusConnection,
+              status: 'connected',
+              createdAt: Date.now()
+            };
+            console.log('Connection stored in global state:', CONNECTION_KEY);
+          }
+          
           // Small delay to ensure connection is fully established
           setTimeout(() => {
             try {
-              if (typeof primus.emit === 'function') {
-                primus.emit('ready');
-              } else if (typeof primus.write === 'function') {
-                primus.write({ action: 'ready' });
+              if (primusConnection && primusConnection.write) {
+                primusConnection.write({ action: 'ready' });
               }
               console.log('Ready event sent to server');
             } catch (err) {
@@ -423,7 +546,7 @@ function HomePage() {
           }, 100);
         });
 
-        primus.on('error', (err: unknown) => {
+        primusConnection.on('error', (err: unknown) => {
           console.error('WebSocket error:', err);
           const errorMessage = typeof err === 'object' && err !== null && 'message' in err 
             ? (err as { message: string }).message 
@@ -431,17 +554,27 @@ function HomePage() {
           setErrorStats(`WebSocket Error: ${errorMessage}`);
         });
 
-        primus.on('close', () => {
+        primusConnection.on('close', () => {
           console.log('WebSocket connection closed');
           setErrorStats('WebSocket connection closed');
+          // Remove from global state
+          if (window.__VBC_WS_CONNECTION__ && window.__VBC_WS_CONNECTION__[CONNECTION_KEY]) {
+            delete window.__VBC_WS_CONNECTION__[CONNECTION_KEY];
+            console.log('Connection removed from global state:', CONNECTION_KEY);
+          }
         });
 
-        primus.on('disconnect', () => {
+        primusConnection.on('disconnect', () => {
           console.log('WebSocket disconnected');
           setErrorStats('WebSocket disconnected - trying to reconnect...');
+          // Remove from global state
+          if (window.__VBC_WS_CONNECTION__ && window.__VBC_WS_CONNECTION__[CONNECTION_KEY]) {
+            delete window.__VBC_WS_CONNECTION__[CONNECTION_KEY];
+            console.log('Connection removed from global state:', CONNECTION_KEY);
+          }
         });
 
-      primus.on('data', async (message: unknown) => {
+      primusConnection.on('data', async (message: unknown) => {
         const typedMessage = message as { 
           action?: string; 
           data?: {
@@ -457,14 +590,60 @@ function HomePage() {
           const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes || []);
           setNodes(nodesWithCoords);
           
+          // Try to get the most recent block timestamp from multiple sources
+          let latestBlockTimestamp = 0;
+          
+          // Check node data for block timestamps
+          for (const node of nodesWithCoords) {
+            // Check for blockTimestamp property directly
+            if (node.blockTimestamp && typeof node.blockTimestamp === 'number' && node.blockTimestamp > latestBlockTimestamp) {
+              latestBlockTimestamp = node.blockTimestamp;
+            }
+            
+            // Check for stats.block.timestamp if available
+            const nodeWithStats = node as { stats?: { block?: { timestamp?: number } } };
+            if (nodeWithStats.stats?.block?.timestamp && typeof nodeWithStats.stats.block.timestamp === 'number') {
+              let blockTs = nodeWithStats.stats.block.timestamp;
+              // Convert to milliseconds if it's in seconds
+              if (blockTs < 10000000000) {
+                blockTs = blockTs * 1000;
+              }
+              if (blockTs > latestBlockTimestamp) {
+                latestBlockTimestamp = blockTs;
+              }
+            }
+          }
+          
+          // Initialize with the most accurate timestamp available
+          if (latestBlockTimestamp > 0) {
+            const now = Date.now();
+            const elapsedSeconds = Math.floor((now - latestBlockTimestamp) / 1000);
+            setLastBlockTime(Math.max(0, elapsedSeconds));
+            setLastBlockTimestamp(latestBlockTimestamp);
+            console.log(`Init: Using node timestamp ${latestBlockTimestamp}, elapsed: ${elapsedSeconds}s`);
+          } else {
+            // Fallback to server-calculated value if available
+            const newStats = typedMessage.data.stats || {};
+            if (newStats['lastBlock']?.value && typeof newStats['lastBlock'].value === 'number') {
+              setLastBlockTime(newStats['lastBlock'].value);
+              // Estimate timestamp based on server value
+              const estimatedTimestamp = Date.now() - (newStats['lastBlock'].value * 1000);
+              setLastBlockTimestamp(estimatedTimestamp);
+              console.log(`Init: Using server value ${newStats['lastBlock'].value}s, estimated timestamp: ${estimatedTimestamp}`);
+            }
+          }
+          
           // Check if bestBlock changed before resetting timer
           const newStats = typedMessage.data.stats || {};
           const newBestBlock = newStats['bestBlock']?.value;
           if (newBestBlock && typeof newBestBlock === 'number') {
-            if (prevBestBlock === null || newBestBlock !== prevBestBlock) {
-              setLastBlockTime(0); // Reset timer on new block or first init
+            if (prevBestBlockRef.current === null || newBestBlock !== prevBestBlockRef.current) {
+              // Only reset if we didn't already set it from timestamp above
+              if (latestBlockTimestamp === 0) {
+                setLastBlockTime(0); // Reset timer on new block or first init
+              }
             }
-            setPrevBestBlock(newBestBlock); // Always update prevBestBlock during init
+            prevBestBlockRef.current = newBestBlock; // Always update prevBestBlock during init
           }
           
           setStats(newStats);
@@ -503,14 +682,46 @@ function HomePage() {
             });
             
             // Only process coordinates for new nodes that don't have stored coordinates
-            const nodesWithCoords = await addCoordinatesToNodes(nodesWithPreservedCoords);
+            // Check if any node actually needs coordinate processing to avoid unnecessary work
+            const needsCoordinateProcessing = nodesWithPreservedCoords.some(node => {
+              const hasServerCoords = (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) ||
+                                    (node.latitude && node.longitude);
+              const hasStoredCoords = nodeCoordinatesRef.current.has(node.id);
+              return !hasServerCoords && !hasStoredCoords;
+            });
+            
+            let nodesWithCoords;
+            if (needsCoordinateProcessing) {
+              console.log('Some nodes need coordinate processing');
+              nodesWithCoords = await addCoordinatesToNodes(nodesWithPreservedCoords);
+            } else {
+              // Apply stored coordinates without IP lookup
+              nodesWithCoords = nodesWithPreservedCoords.map(node => {
+                const storedCoords = nodeCoordinatesRef.current.get(node.id);
+                if (storedCoords && !node.latitude && !node.longitude) {
+                  return { ...node, ...storedCoords };
+                }
+                return node;
+              });
+            }
             setNodes(nodesWithCoords);
             
             // Check if bestBlock changed before resetting timer
             const newBestBlock = typedMessage.data.stats['bestBlock']?.value;
-            if (newBestBlock && typeof newBestBlock === 'number' && prevBestBlock !== null && newBestBlock !== prevBestBlock) {
-              setLastBlockTime(0); // Reset timer only on new block
-              setPrevBestBlock(newBestBlock);
+            if (newBestBlock && typeof newBestBlock === 'number') {
+              // Only reset timer when bestBlock actually increases (prevent timer reset from older messages)
+              if (prevBestBlockRef.current !== null && newBestBlock > prevBestBlockRef.current) {
+                console.log('Block: Timer reset, new block:', newBestBlock, 'prev:', prevBestBlockRef.current);
+                setLastBlockTime(0); // Reset timer only on new block
+                setLastBlockTimestamp(Date.now()); // Set timestamp to now for new block
+                prevBestBlockRef.current = newBestBlock;
+              } else if (prevBestBlockRef.current === null) {
+                // First time setting the block number
+                prevBestBlockRef.current = newBestBlock;
+              } else if (newBestBlock < prevBestBlockRef.current) {
+                // Ignore older block numbers that arrive late
+                console.log('Block: Ignoring older block:', newBestBlock, 'current:', prevBestBlockRef.current);
+              }
             }
             
             setStats(typedMessage.data.stats);
@@ -524,7 +735,7 @@ function HomePage() {
             }));
           }
         } else if (typedMessage.action === 'stats' && typedMessage.data) {
-          // Handle stats updates - NEVER process bestBlock in stats action to prevent unwanted resets
+          // Handle stats updates - Allow bestBlock updates but handle timer reset carefully
           
           // Update individual node stats without changing coordinates
           if (typedMessage.data.id && typedMessage.data.stats) {
@@ -533,16 +744,37 @@ function HomePage() {
             ));
           }
           
-          // For global stats updates, only update non-bestBlock stats
+          // For global stats updates, allow all stats including bestBlock
           if (typedMessage.data.stats && !typedMessage.data.id) {
-            // Create a copy of stats without bestBlock to prevent interference
-            const statsWithoutBestBlock = { ...typedMessage.data.stats };
-            delete statsWithoutBestBlock['bestBlock'];
+            // Check if bestBlock changed before updating stats
+            const newBestBlock = typedMessage.data.stats['bestBlock']?.value;
             
-            // Only update non-bestBlock stats
+            if (newBestBlock && typeof newBestBlock === 'number') {
+              // Only reset timer when bestBlock actually increases (prevent timer reset from older messages)
+              if (prevBestBlockRef.current === null) {
+                // First time setting the block number
+                console.log('Stats: Initial block set:', newBestBlock);
+                prevBestBlockRef.current = newBestBlock;
+              } else if (newBestBlock > prevBestBlockRef.current) {
+                // Block number increased - reset timer
+                console.log('Stats: Timer reset, new block:', newBestBlock, 'prev:', prevBestBlockRef.current);
+                setLastBlockTime(0);
+                setLastBlockTimestamp(Date.now());
+                prevBestBlockRef.current = newBestBlock;
+              } else if (newBestBlock < prevBestBlockRef.current) {
+                // Ignore older block numbers that arrive late
+                console.log('Stats: Ignoring older block:', newBestBlock, 'current:', prevBestBlockRef.current);
+                return; // Exit early to prevent stats update
+              } else {
+                // Same block number - ignore silently to prevent spam
+                return; // Exit early to prevent stats update
+              }
+            }
+            
+            // Update all stats including bestBlock
             setStats(prevStats => ({
               ...prevStats,
-              ...statsWithoutBestBlock
+              ...typedMessage.data!.stats
             }));
           }
         } else if (typedMessage.action === 'pending' && typedMessage.data) {
@@ -581,8 +813,8 @@ function HomePage() {
           let pongSent = false;
           // Method 1: Try write method first (most reliable for Primus)
           try {
-            if (typeof primus.write === 'function') {
-              primus.write({
+            if (primusConnection && typeof primusConnection.write === 'function') {
+              primusConnection.write({
                 action: 'client-pong',
                 data: pongData
               });
@@ -594,8 +826,8 @@ function HomePage() {
           // Method 2: Try emit method as backup if write failed
           if (!pongSent) {
             try {
-              if (typeof primus.emit === 'function') {
-                primus.emit('client-pong', pongData);
+              if (primusConnection && typeof primusConnection.emit === 'function') {
+                primusConnection.emit('client-pong', pongData);
                 pongSent = true;
               }
             } catch {
@@ -629,35 +861,76 @@ function HomePage() {
         }
       });
 
-      primus.on('error', () => {
-        setErrorStats("Connection error");
-      });
-
       } catch (err) {
         console.error('Failed to initialize Primus:', err);
         setErrorStats("Failed to initialize Primus");
       }
     };
 
-    script.onerror = () => {
+    scriptElement.onerror = () => {
       setErrorStats("Failed to load Primus");
     };
 
-    script.onerror = (error) => {
+    scriptElement.onerror = (error: Event | string) => {
       console.error('Failed to load Primus library from:', baseUrl, error);
       setErrorStats(`Failed to load WebSocket library from ${baseUrl}`);
       setLoadingStats(false);
     };
     
-    document.head.appendChild(script);
+    document.head.appendChild(scriptElement);
 
     return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
+      // Clean up WebSocket connection
+      if (primusConnection) {
+        try {
+          if (typeof primusConnection.destroy === 'function') {
+            primusConnection.destroy();
+          } else if (typeof primusConnection.end === 'function') {
+            primusConnection.end();
+          }
+        } catch (error) {
+          console.warn('Error closing WebSocket connection:', error);
+        }
       }
+      
+      // Clean up script element
+      if (scriptElement && document.head.contains(scriptElement)) {
+        document.head.removeChild(scriptElement);
+      }
+      
+      // Remove connection from global state
+      if (window.__VBC_WS_CONNECTION__ && window.__VBC_WS_CONNECTION__[CONNECTION_KEY]) {
+        delete window.__VBC_WS_CONNECTION__[CONNECTION_KEY];
+        console.log('Connection removed from global state in cleanup:', CONNECTION_KEY);
+      }
+      
+      // Remove page unload handler
+      window.removeEventListener('beforeunload', handlePageUnload);
     };
+    
+    // Add page unload handler to clean up connections when tab/window closes
+    const handlePageUnload = () => {
+      console.log('Page unloading, cleaning up WebSocket connection');
+      if (window.__VBC_WS_CONNECTION__?.[CONNECTION_KEY]) {
+        const connection = window.__VBC_WS_CONNECTION__[CONNECTION_KEY].connection;
+        try {
+          if (connection.destroy) {
+            connection.destroy();
+          } else if (connection.end) {
+            connection.end();
+          }
+        } catch (error) {
+          console.warn('Error during page unload cleanup:', error);
+        }
+        delete window.__VBC_WS_CONNECTION__[CONNECTION_KEY];
+      }
+      delete (window as unknown as { [key: string]: string })[CONNECTION_STATUS];
+    };
+    
+    window.addEventListener('beforeunload', handlePageUnload);
    
-  }, [addCoordinatesToNodes, prevBestBlock, setPrevBestBlock]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Remove dependencies to prevent WebSocket reconnection
 
   const statCards = [
     { id: 'bestBlock', icon: <FaCube className="text-blue-400" />, label: "Best Block" },

@@ -246,7 +246,6 @@ function HomePage() {
       const cached = ipCoordinatesCache.current.get(ip);
       const now = Date.now();
       if (cached && (now - cached.timestamp) < 24 * 60 * 60 * 1000) {
-        console.log(`Using cached coordinates for IP ${ip}:`, cached.latitude, cached.longitude);
         return { latitude: cached.latitude, longitude: cached.longitude };
       }
 
@@ -292,16 +291,6 @@ function HomePage() {
 
   // Function to add stable coordinates to nodes based on server data or IP
   const addCoordinatesToNodes = useCallback(async (nodesList: Node[]): Promise<Node[]> => {
-    console.log('Processing nodes for coordinates:', nodesList.length, 'nodes');
-    console.log('Current stored coordinates count:', nodeCoordinatesRef.current.size);
-    
-    // Debug: Log current cache contents
-    if (nodeCoordinatesRef.current.size > 0) {
-      console.log('Current coordinate cache:');
-      nodeCoordinatesRef.current.forEach((coords, nodeId) => {
-        console.log(`  ${nodeId}: ${coords.latitude}, ${coords.longitude}`);
-      });
-    }
     
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
       // Priority 1: If node has server-provided coordinates (from geoip-lite), use them immediately
@@ -315,7 +304,6 @@ function HomePage() {
         };
         nodeCoordinatesRef.current.set(node.id, serverCoords);
         saveCoordinatesToStorage();
-        console.log(`Node ${node.id} (${node.name}) using server-provided coordinates:`, node.latitude, node.longitude);
         return node;
       }
       
@@ -330,7 +318,6 @@ function HomePage() {
         // Store in persistent map for future reference
         nodeCoordinatesRef.current.set(node.id, coords);
         saveCoordinatesToStorage();
-        console.log(`Node ${node.id} (${node.name}) using server geo.ll coordinates:`, coords.latitude, coords.longitude);
         return {
           ...node,
           ...coords
@@ -340,7 +327,6 @@ function HomePage() {
       // Priority 3: Check if we have stored coordinates for this node
       const storedCoords = nodeCoordinatesRef.current.get(node.id);
       if (storedCoords) {
-        console.log(`Node ${node.id} (${node.name}) using stored coordinates:`, storedCoords.latitude, storedCoords.longitude);
         return {
           ...node,
           latitude: storedCoords.latitude,
@@ -357,7 +343,6 @@ function HomePage() {
             // Store coordinates for future use
             nodeCoordinatesRef.current.set(node.id, coords);
             saveCoordinatesToStorage();
-            console.log(`Node ${node.id} (${node.name}) got GeoIP-based coordinates for ${ip}:`, coords.latitude, coords.longitude);
             return {
               ...node,
               ...coords,

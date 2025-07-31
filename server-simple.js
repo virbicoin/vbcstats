@@ -95,13 +95,6 @@ function setGeo(node, ip) {
     node.latitude = latitude;
     node.longitude = longitude;
     
-    console.log(`Test geo data generated for ${nodeId} (${cleanIp}):`, {
-      latitude: latitude,
-      longitude: longitude,
-      country: 'XX',
-      city: 'Test City'
-    });
-    
     return node;
   }
   
@@ -113,15 +106,6 @@ function setGeo(node, ip) {
   if (geo && geo.ll && geo.ll.length === 2) {
     node.latitude = geo.ll[0];  // latitude
     node.longitude = geo.ll[1]; // longitude
-    
-    console.log(`Real geo data found for ${node.id} (${cleanIp}):`, {
-      latitude: geo.ll[0],
-      longitude: geo.ll[1],
-      country: geo.country,
-      city: geo.city
-    });
-  } else {
-    console.log(`No geo data found for ${node.id} (${cleanIp})`);
   }
   
   return node;
@@ -152,113 +136,6 @@ function getNodeIP(spark) {
   
   return null;
 }
-// Add sample nodes for testing GeoIP functionality
-function addSampleNodes() {
-  const sampleNodes = [
-    {
-      id: 'Gvbc-Tokyo',
-      ip: '202.32.74.59', // Japan
-      info: { 
-        name: 'Tokyo Node',
-        client: '0.1.1',
-        node: 'Gvbc/v1.9.36-stable/linux-amd64/go1.24.5',
-        type: 'gvbc'
-      },
-      stats: {
-        active: true,
-        syncing: false,
-        mining: true,
-        hashrate: 1000000,
-        peers: 12,
-        gasPrice: 1000000000,
-        uptime: 100,
-        block: {
-          number: 319800,
-          hash: '0x1234567890abcdef',
-          timestamp: Math.floor(Date.now() / 1000),
-          arrived: Date.now(),
-          received: Date.now(),
-          propagation: 50
-        }
-      }
-    },
-    {
-      id: 'Gvbc-Singapore',
-      ip: '3.1.205.236', // Singapore
-      info: { 
-        name: 'Singapore Node',
-        client: '0.1.1',
-        node: 'Gvbc/v1.9.36-stable/linux-amd64/go1.24.5',
-        type: 'gvbc'
-      },
-      stats: {
-        active: true,
-        syncing: false,
-        mining: true,
-        hashrate: 800000,
-        peers: 15,
-        gasPrice: 1000000000,
-        uptime: 98,
-        block: {
-          number: 319799,
-          hash: '0xabcdef1234567890',
-          timestamp: Math.floor(Date.now() / 1000) - 15,
-          arrived: Date.now() - 15000,
-          received: Date.now() - 15000,
-          propagation: 75
-        }
-      }
-    },
-    {
-      id: 'Gvbc-Stockholm',
-      ip: '185.94.111.1', // Sweden
-      info: { 
-        name: 'Stockholm Node',
-        client: '0.1.1',
-        node: 'Gvbc/v1.9.36-stable/linux-amd64/go1.24.5',
-        type: 'gvbc'
-      },
-      stats: {
-        active: true,
-        syncing: false,
-        mining: false,
-        hashrate: 0,
-        peers: 8,
-        gasPrice: 1000000000,
-        uptime: 95,
-        block: {
-          number: 319798,
-          hash: '0x9876543210fedcba',
-          timestamp: Math.floor(Date.now() / 1000) - 30,
-          arrived: Date.now() - 30000,
-          received: Date.now() - 30000,
-          propagation: 120
-        }
-      }
-    }
-  ];
-
-  // Add sample nodes with delay to avoid overwhelming the system
-  sampleNodes.forEach((nodeData, index) => {
-    setTimeout(() => {
-      // Set geographic information
-      const nodeWithGeo = setGeo(nodeData, nodeData.ip);
-      
-      // Add to collection
-      Nodes.add(nodeWithGeo, (err, info) => {
-        if (!err && info) {
-          console.log(`Sample node added: ${info.id} with real GeoIP data`);
-        }
-      });
-    }, (index + 1) * 5000); // 5 second delay between each node
-  });
-}
-
-// Add sample nodes after server starts
-setTimeout(() => {
-  console.log('Adding sample nodes with real IP addresses for GeoIP testing...');
-  addSampleNodes();
-}, 10000); // Wait 10 seconds after server start
 
 const MAX_BLOCK_HISTORY = 200; // Keep last 200 blocks for calculation
 
@@ -373,8 +250,6 @@ function addPropagationToHistory(nodeId, propagationMs) {
   if (nodeHistory.length > MAX_PROPAGATION_HISTORY) {
     nodeHistory.shift();
   }
-  
-  console.log(`Added propagation ${propagationMs}ms to ${nodeId} history. History length: ${nodeHistory.length}`);
 }
 
 // Calculate average propagation for a node
@@ -386,8 +261,6 @@ function calculateAvgPropagation(nodeId) {
   
   const sum = nodeHistory.reduce((acc, prop) => acc + prop, 0);
   const avg = Math.round(sum / nodeHistory.length);
-  
-  console.log(`Calculated avg propagation for ${nodeId}: ${avg}ms (from ${nodeHistory.length} samples)`);
   return avg;
 }
 
@@ -662,20 +535,6 @@ apiPrimus.on('connection', (spark) => {
         if (addedNode) {
           // Set geographic information using geoip-lite
           setGeo(addedNode, nodeIP);
-          
-          console.log('Node details:', {
-            id: addedNode.id,
-            ip: nodeIP,
-            geo: addedNode.geo,
-            latitude: addedNode.latitude,
-            longitude: addedNode.longitude,
-            active: addedNode.stats?.active,
-            statsExists: !!addedNode.stats,
-            blockNumber: addedNode.stats?.block?.number,
-            infoType: addedNode.info?.type,
-            infoClient: addedNode.info?.client,
-            infoNode: addedNode.info?.node
-          });
           
           // Set default client type if not provided
           if (!addedNode.info) {

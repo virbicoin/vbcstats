@@ -216,12 +216,23 @@ function HomePage() {
   // Function to add stable coordinates to nodes based on server data or IP
   const addCoordinatesToNodes = useCallback(async (nodesList: Node[]): Promise<Node[]> => {
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
+      // Priority 1: Check if we have stored coordinates for this node first (most efficient)
+      const storedCoords = nodeCoordinatesRef.current.get(node.id);
+      if (storedCoords) {
+        return {
+          ...node,
+          latitude: storedCoords.latitude,
+          longitude: storedCoords.longitude,
+        };
+      }
+
+      // Priority 2: If node has geo.ll data from server (geoip-lite), use it
       if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
         const coords = {
           latitude: node.geo.ll[0],
           longitude: node.geo.ll[1]
         };
-        // Store in persistent map for future reference
+        // Store in persistent map for future reference (new node only)
         nodeCoordinatesRef.current.set(node.id, coords);
         return {
           ...node,
@@ -231,7 +242,7 @@ function HomePage() {
       
       // Priority 3: If node already has coordinates from server, use them
       if (node.latitude && node.longitude) {
-        // Store in persistent map for future reference
+        // Store in persistent map for future reference (new node only)
         nodeCoordinatesRef.current.set(node.id, { 
           latitude: node.latitude, 
           longitude: node.longitude 
@@ -562,18 +573,41 @@ function HomePage() {
               const shouldResetTimer = prevBestBlock === null || newBestBlock !== prevBestBlock;
               
               if (shouldResetTimer) {
+                console.log(`New block detected: ${prevBestBlock} -> ${newBestBlock}`);
+                
                 // Try to find the most recent block timestamp from nodes
                 const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
                   node.blockTimestamp && typeof node.blockTimestamp === 'number'
                 );
+                
                 if (nodesWithTimestamp && nodesWithTimestamp.length > 0) {
                   const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
                   const maxTimestamp = Math.max(...timestamps);
                   if (maxTimestamp > 0) {
+                    console.log(`Resetting Last Block timer with timestamp: ${maxTimestamp}`);
                     setLastBlockTimestamp(maxTimestamp);
                     // Calculate initial time difference
                     const initialTimeDiff = Math.floor((Date.now() - maxTimestamp) / 1000);
                     setLastBlockTime(initialTimeDiff);
+                  } else {
+                    console.log('No valid timestamps found in nodes');
+                  }
+                } else {
+                  console.log('No nodes with timestamp found, trying fallback methods');
+                  
+                  // Fallback: Use lastBlock stat if available
+                  const statsLastBlock = typedMessage.data.stats['lastBlock'];
+                  if (statsLastBlock && typeof statsLastBlock.value === 'number' && statsLastBlock.value >= 0) {
+                    console.log(`Using stats lastBlock value: ${statsLastBlock.value} seconds`);
+                    setLastBlockTime(Number(statsLastBlock.value));
+                    // Calculate timestamp from the elapsed time
+                    const estimatedTimestamp = Date.now() - (Number(statsLastBlock.value) * 1000);
+                    setLastBlockTimestamp(estimatedTimestamp);
+                  } else {
+                    // Force reset to 0 for new blocks even without timestamp
+                    console.log('Forcing Last Block reset to 0 for new block');
+                    setLastBlockTime(0);
+                    setLastBlockTimestamp(Date.now());
                   }
                 }
                 setPrevBestBlock(newBestBlock);

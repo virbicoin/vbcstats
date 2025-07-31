@@ -118,8 +118,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
   TimeLabels.displayName = 'TimeLabels';
 
   return (
-    <div className="grid grid-cols-4 grid-rows-3 gap-6 w-full">
-      {/* Block Time Chart */}
+    <div className="grid grid-cols-4 gap-6">
+      {/* Block Time Chart - top left */}
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Block Time</h3>
         <div className="h-40">
@@ -135,14 +135,14 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                domain={[12, 14]}
+                domain={[12.4, 13.6]}
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
               <Line 
                 type="monotone" 
                 dataKey="blockTime" 
-                stroke="#f59e0b" 
+                stroke="#3b82f6" 
                 strokeWidth={2}
                 dot={false}
                 activeDot={false}
@@ -156,7 +156,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
         <TimeLabels />
       </div>
 
-      {/* Difficulty Chart */}
+      {/* Difficulty Chart - top center left */}
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Difficulty</h3>
         <div className="h-40">
@@ -195,12 +195,12 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
         <TimeLabels />
       </div>
 
-      {/* Uncle Count Chart */}
+      {/* Transactions Chart - top center right */}
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Uncle Count</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">Transactions</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
+            <AreaChart 
               data={chartData} 
               margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
             >
@@ -211,24 +211,30 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                domain={[0, 3]}
+                domain={[10, 70]}
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Bar 
-                dataKey="uncles" 
-                fill="#a855f7"
-                radius={[2, 2, 0, 0]}
+              <Area 
+                type="monotone" 
+                dataKey="transactions" 
+                stroke="#10b981" 
+                fill="#10b981" 
+                fillOpacity={0.3}
+                strokeWidth={2}
+                dot={false}
+                activeDot={false}
                 animationDuration={0}
                 isAnimationActive={false}
+                connectNulls={false}
               />
-            </BarChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
         <TimeLabels />
       </div>
 
-      {/* Block Propagation Chart */}
+      {/* Block Propagation Chart - top right */}
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Block Propagation</h3>
         <div className="h-40">
@@ -251,7 +257,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
               <Line 
                 type="monotone" 
                 dataKey="propagation" 
-                stroke="#06b6d4" 
+                stroke="#f59e0b" 
                 strokeWidth={2}
                 dot={false}
                 activeDot={false}
@@ -265,9 +271,9 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
         <TimeLabels />
       </div>
 
-      {/* Transactions Chart */}
+      {/* Uncle Count Chart - bottom left */}
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Transactions</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">Uncle Count</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
@@ -281,13 +287,13 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                domain={[0, 70]}
+                domain={[0, 3]}
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
               <Bar 
-                dataKey="transactions" 
-                fill="#10b981"
+                dataKey="uncles" 
+                fill="#8b5cf6"
                 radius={[2, 2, 0, 0]}
                 animationDuration={0}
                 isAnimationActive={false}
@@ -298,14 +304,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
         <TimeLabels />
       </div>
 
-      {/* Network Map - 3 columns, 2 rows on the right */}
-      <div className="col-span-3 row-span-2 bg-gray-900 border border-gray-700 rounded-lg p-6">
-        <div className="h-full bg-gray-800 rounded">
-          <Map nodes={nodes} />
-        </div>
-      </div>
-
-      {/* Uncle Count Chart (bottom row) */}
+      {/* Gas Spending Chart - bottom center left */}
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Gas Spending</h3>
         <div className="h-40">
@@ -342,6 +341,14 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
           </ResponsiveContainer>
         </div>
         <TimeLabels />
+      </div>
+
+      {/* Network Map - bottom right, spans 2 columns */}
+      <div className="col-span-2 bg-gray-900 border border-gray-700 rounded-lg p-6 h-64 relative">
+        <h3 className="text-lg font-semibold text-white mb-4 relative z-10">Network Map</h3>
+        <div className="absolute inset-6 bg-gray-800 rounded overflow-hidden">
+          <Map nodes={nodes} />
+        </div>
       </div>
     </div>
   );

@@ -107,7 +107,8 @@ function HomePage() {
   const [stats, setStats] = useState<StatsData>({});
   const [loadingStats, setLoadingStats] = useState(true);
   const [errorStats, setErrorStats] = useState("");
-  const [lastBlockTime, setLastBlockTime] = useState<number>(0);
+  const [lastBlockTime, setLastBlockTime] = useState<number | null>(null);
+  const [lastBlockTimestamp, setLastBlockTimestamp] = useState<number | null>(null);
   const [pageLatency, setPageLatency] = useState<number>(0);
   const [latencyRetryCount, setLatencyRetryCount] = useState<number>(0);
   const [lastValidLatency, setLastValidLatency] = useState<number>(0);
@@ -323,14 +324,22 @@ function HomePage() {
     return processedNodes;
   }, []);
 
-  // Last Block timer - increments every second
+  // Last Block timer - calculate from actual block timestamp
   useEffect(() => {
     const timer = setInterval(() => {
-      setLastBlockTime(prev => prev + 1);
+      if (lastBlockTimestamp) {
+        // Calculate time difference from actual block timestamp
+        const now = Date.now();
+        const timeDiff = Math.floor((now - lastBlockTimestamp) / 1000);
+        setLastBlockTime(timeDiff);
+      } else {
+        // Don't show timer until we have a valid timestamp
+        setLastBlockTime(null);
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [lastBlockTimestamp]);
 
   // Reset last block time when new block arrives - DISABLED (handled in WebSocket events)
   // useEffect(() => {
@@ -454,20 +463,96 @@ function HomePage() {
           };
         };
         if (typedMessage.action === 'init' && typedMessage.data) {
+          console.log('Init data received:', {
+            nodeCount: typedMessage.data.nodes?.length,
+            sampleNode: typedMessage.data.nodes?.[0],
+            stats: typedMessage.data.stats,
+            lastBlockStat: typedMessage.data.stats?.['lastBlock']
+          });
+          
           const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes || []);
           setNodes(nodesWithCoords);
           
           // Check if bestBlock changed before resetting timer
           const newStats = typedMessage.data.stats || {};
           const newBestBlock = newStats['bestBlock']?.value;
+          console.log('Best block check - new:', newBestBlock, 'previous:', prevBestBlock);
+          
           if (newBestBlock && typeof newBestBlock === 'number') {
             if (prevBestBlock === null || newBestBlock !== prevBestBlock) {
-              setLastBlockTime(0); // Reset timer on new block or first init
+              console.log('Processing new best block:', newBestBlock, 'previous:', prevBestBlock);
+              
+              // Try to find the most recent block timestamp from nodes
+              const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
+                node.blockTimestamp && typeof node.blockTimestamp === 'number'
+              );
+              
+              if (nodesWithTimestamp && nodesWithTimestamp.length > 0) {
+                const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
+                const maxTimestamp = Math.max(...timestamps);
+                console.log('Found node timestamps:', timestamps, 'using max:', maxTimestamp);
+                if (maxTimestamp > 0) {
+                  setLastBlockTimestamp(maxTimestamp);
+                  // Calculate initial time difference
+                  const initialTimeDiff = Math.floor((Date.now() - maxTimestamp) / 1000);
+                  setLastBlockTime(initialTimeDiff);
+                  console.log('Set last block time to:', initialTimeDiff, 'seconds');
+                }
+              } else {
+                // Alternative: try to find latest block info from nodes by block number
+                const nodesWithBlock = typedMessage.data.nodes?.filter(node => 
+                  node.block && typeof node.block === 'number'
+                );
+                if (nodesWithBlock && nodesWithBlock.length > 0) {
+                  // Find the node with the highest block number
+                  const maxBlockNode = nodesWithBlock.reduce((max, node) => 
+                    (node.block! > max.block!) ? node : max
+                  );
+                  console.log('Using node with highest block:', maxBlockNode.block, 'node:', maxBlockNode.id);
+                  
+                  // If this node has lastBlockTime, use it
+                  if (maxBlockNode.lastBlockTime) {
+                    const lastBlockTimeStr = String(maxBlockNode.lastBlockTime);
+                    const secondsMatch = lastBlockTimeStr.match(/(\d+)/);
+                    if (secondsMatch) {
+                      const seconds = parseInt(secondsMatch[1]);
+                      console.log('Using lastBlockTime from node:', seconds, 'seconds');
+                      setLastBlockTime(seconds);
+                      const estimatedTimestamp = Date.now() - (seconds * 1000);
+                      setLastBlockTimestamp(estimatedTimestamp);
+                    }
+                  }
+                } else {
+                  // Fallback: check if stats contains lastBlock time information
+                  const statsLastBlock = newStats['lastBlock'];
+                  if (statsLastBlock && typeof statsLastBlock.value === 'number' && statsLastBlock.value >= 0) {
+                    // lastBlock value is likely already in seconds since last block
+                    console.log('Using lastBlock from stats:', statsLastBlock.value);
+                    setLastBlockTime(Number(statsLastBlock.value));
+                    // Calculate timestamp from the elapsed time
+                    const estimatedTimestamp = Date.now() - (Number(statsLastBlock.value) * 1000);
+                    setLastBlockTimestamp(estimatedTimestamp);
+                  }
+                }
+              }
+              // If no valid timestamp found, keep null values to show '--'
             }
             setPrevBestBlock(newBestBlock); // Always update prevBestBlock during init
           }
           
           setStats(newStats);
+          
+          // If we still don't have a last block time set, try to get it from the stats we just set
+          if (lastBlockTime === null && newStats['lastBlock']) {
+            const statsLastBlock = newStats['lastBlock'];
+            if (statsLastBlock && typeof statsLastBlock.value === 'number' && statsLastBlock.value >= 0) {
+              console.log('Setting initial lastBlock time from stats:', statsLastBlock.value);
+              setLastBlockTime(Number(statsLastBlock.value));
+              const estimatedTimestamp = Date.now() - (Number(statsLastBlock.value) * 1000);
+              setLastBlockTimestamp(estimatedTimestamp);
+            }
+          }
+          
           setLoadingStats(false);
           } else if (typedMessage.action === 'update' && typedMessage.data) {
           // Update individual node stats but keep network stats and coordinates
@@ -485,6 +570,12 @@ function HomePage() {
             }));
           }
         } else if (typedMessage.action === 'block' && typedMessage.data) {
+          console.log('Block data received:', {
+            nodeCount: typedMessage.data.nodes?.length,
+            sampleNode: typedMessage.data.nodes?.[0],
+            stats: typedMessage.data.stats
+          });
+          
           // Handle block updates - refresh all data (both nodes and stats will be updated)
           if (typedMessage.data.nodes && typedMessage.data.stats) {
             // Full block update with nodes and stats - this is the primary case for timer reset
@@ -509,16 +600,44 @@ function HomePage() {
             // Check if bestBlock changed before resetting timer
             const newBestBlock = typedMessage.data.stats['bestBlock']?.value;
             if (newBestBlock && typeof newBestBlock === 'number' && prevBestBlock !== null && newBestBlock !== prevBestBlock) {
-              setLastBlockTime(0); // Reset timer only on new block
+              // Try to find the most recent block timestamp from nodes
+              const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
+                node.blockTimestamp && typeof node.blockTimestamp === 'number'
+              );
+              if (nodesWithTimestamp && nodesWithTimestamp.length > 0) {
+                const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
+                const maxTimestamp = Math.max(...timestamps);
+                if (maxTimestamp > 0) {
+                  setLastBlockTimestamp(maxTimestamp);
+                  // Calculate initial time difference
+                  const initialTimeDiff = Math.floor((Date.now() - maxTimestamp) / 1000);
+                  setLastBlockTime(initialTimeDiff);
+                }
+              }
               setPrevBestBlock(newBestBlock);
             }
             
             setStats(typedMessage.data.stats);
           } else if (typedMessage.data.id) {
-            // Individual node update - preserve coordinates and do NOT process bestBlock
+            // Individual node update - preserve coordinates and check for block timestamp updates
             setNodes(prev => prev.map(node => {
               if (node.id === typedMessage.data!.id) {
-                return { ...node, ...typedMessage.data };
+                const updatedNode = { ...node, ...typedMessage.data };
+                
+                // If this node has a newer block timestamp, update our global timestamp
+                if (updatedNode.blockTimestamp && typeof updatedNode.blockTimestamp === 'number') {
+                  setLastBlockTimestamp(currentTimestamp => {
+                    if (!currentTimestamp || updatedNode.blockTimestamp! > currentTimestamp) {
+                      // Calculate time difference for the new timestamp
+                      const timeDiff = Math.floor((Date.now() - updatedNode.blockTimestamp!) / 1000);
+                      setLastBlockTime(timeDiff);
+                      return updatedNode.blockTimestamp!;
+                    }
+                    return currentTimestamp;
+                  });
+                }
+                
+                return updatedNode;
               }
               return node;
             }));
@@ -657,7 +776,7 @@ function HomePage() {
       }
     };
    
-  }, [addCoordinatesToNodes, prevBestBlock, setPrevBestBlock]);
+  }, [addCoordinatesToNodes, prevBestBlock, setPrevBestBlock, lastBlockTime]);
 
   const statCards = [
     { id: 'bestBlock', icon: <FaCube className="text-blue-400" />, label: "Best Block" },
@@ -689,7 +808,7 @@ function HomePage() {
 
     switch (card.id) {
       case 'lastBlock':
-        return `${lastBlockTime} s ago`;
+        return lastBlockTime !== null ? `${lastBlockTime} s ago` : '--';
       case 'avgBlockTime':
         // GVBC specific: 13 seconds block time
         const blockTime = Number(stat.value);
@@ -705,6 +824,7 @@ function HomePage() {
       case 'gasPrice':
         // Convert wei to gwei and truncate decimal places for Gniku display
         const priceInGwei = weiToGwei(Number(stat.value));
+        console.log('Gas price conversion:', stat.value, 'wei ->', priceInGwei, 'gwei ->', Math.floor(priceInGwei), 'Gniku');
         return `${Math.floor(priceInGwei)} Gniku`;
       case 'bestBlock':
       case 'activeNodes':
@@ -731,7 +851,7 @@ function HomePage() {
               <div className="flex items-center justify-between mb-2">
                 {React.cloneElement(card.icon, { className: "text-3xl " + card.icon.props.className })}
               </div>
-              <div className={`text-2xl font-bold mb-1 ${card.id === 'lastBlock' ? getLastBlockTimeColor(lastBlockTime) : 'text-white'}`}>
+              <div className={`text-2xl font-bold mb-1 ${card.id === 'lastBlock' ? getLastBlockTimeColor(lastBlockTime || 0) : 'text-white'}`}>
                 {formatStatValue(card)}
               </div>
               <div className="text-sm text-gray-400 uppercase tracking-wide">{card.label}</div>
@@ -760,6 +880,7 @@ function HomePage() {
             <div className="text-2xl font-bold text-white mb-1">
               {loadingStats ? '--' : errorStats || !stats['gasPrice'] ? '!' : (() => {
                 const priceInGwei = weiToGwei(Number(stats['gasPrice'].value));
+                console.log('Gas price (additional row):', stats['gasPrice'].value, 'wei ->', priceInGwei, 'gwei ->', Math.floor(priceInGwei), 'Gniku');
                 return `${Math.floor(priceInGwei)} Gniku`;
               })()}
             </div>

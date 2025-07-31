@@ -363,7 +363,55 @@ function HomePage() {
         }
       }
       
-      // Fallback: Generate stable coordinates based on node ID (smaller spread)
+      // Fallback: Generate appropriate coordinates based on node name patterns and ID
+      // First, check if node name suggests a specific region
+      const nodeName = node.name.toLowerCase();
+      let baseCoords: { lat: number; lng: number };
+      
+      // Check for specific regional patterns in node names
+      if (nodeName.includes('japan') || nodeName.includes('jp') || nodeName.includes('tokyo') || 
+          nodeName.includes('osaka') || nodeName.includes('kyoto')) {
+        // Japanese nodes - place in Japan with variation around major cities
+        const japanCities = [
+          { lat: 35.6762, lng: 139.6503 }, // Tokyo
+          { lat: 34.6937, lng: 135.5023 }, // Osaka
+          { lat: 35.0116, lng: 135.7681 }, // Kyoto
+          { lat: 35.4437, lng: 139.6380 }, // Yokohama
+          { lat: 43.0642, lng: 141.3469 }, // Sapporo
+        ];
+        
+        const nodeIdString = String(node.id);
+        let hash = 0;
+        for (let i = 0; i < nodeIdString.length; i++) {
+          const char = nodeIdString.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash;
+        }
+        
+        const cityIndex = Math.abs(hash) % japanCities.length;
+        baseCoords = japanCities[cityIndex];
+        
+        // Small variation within Japan (±0.3 degrees for city-level precision)
+        const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 0.6; // -0.3 to +0.3 degrees
+        const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 0.6; // -0.3 to +0.3 degrees
+        
+        const newCoords = {
+          latitude: baseCoords.lat + latVariation,
+          longitude: baseCoords.lng + lngVariation,
+        };
+        
+        // Store coordinates for future use
+        nodeCoordinatesRef.current.set(node.id, newCoords);
+        saveCoordinatesToStorage();
+        console.log(`Node ${node.id} (${node.name}) generated Japanese coordinates:`, newCoords.latitude, newCoords.longitude);
+        
+        return {
+          ...node,
+          ...newCoords,
+        };
+      }
+      
+      // General fallback for all other nodes (including Gvbc nodes)
       const cityCoordinates = [
         { lat: 35.6762, lng: 139.6503 }, // Tokyo
         { lat: 40.7128, lng: -74.0060 }, // New York
@@ -375,6 +423,11 @@ function HomePage() {
         { lat: 22.3193, lng: 114.1694 }, // Hong Kong
         { lat: 1.3521, lng: 103.8198 },  // Singapore
         { lat: -33.8688, lng: 151.2093 }, // Sydney
+        { lat: 59.3293, lng: 18.0686 },  // Stockholm
+        { lat: 60.1695, lng: 24.9354 },  // Helsinki
+        { lat: 55.6761, lng: 12.5683 },  // Copenhagen
+        { lat: 47.3769, lng: 8.5417 },   // Zurich
+        { lat: 50.1109, lng: 8.6821 },   // Frankfurt
       ];
       
       // Create a simple hash from node ID for consistent positioning
@@ -402,7 +455,7 @@ function HomePage() {
       // Store coordinates for future use
       nodeCoordinatesRef.current.set(node.id, newCoords);
       saveCoordinatesToStorage();
-      console.log(`Node ${node.id} (${node.name}) generated fallback coordinates:`, newCoords.latitude, newCoords.longitude);
+      console.log(`Node ${node.id} (${node.name}) generated global coordinates:`, newCoords.latitude, newCoords.longitude);
       
       return {
         ...node,

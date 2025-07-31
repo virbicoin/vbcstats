@@ -163,7 +163,38 @@ function HomePage() {
   const prevBestBlockRef = useRef<number | null>(null);
   
   // Store node coordinates persistently to prevent position changes
+  // Use localStorage in browser to persist across hot reloads
   const nodeCoordinatesRef = useRef(new globalThis.Map<string | number, { latitude: number; longitude: number }>());
+  
+  // Initialize coordinates cache from localStorage on component mount
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('vbc-node-coordinates');
+      if (stored) {
+        const parsedCoords = JSON.parse(stored);
+        Object.entries(parsedCoords).forEach(([nodeId, coords]) => {
+          nodeCoordinatesRef.current.set(nodeId, coords as { latitude: number; longitude: number });
+        });
+        console.log('Loaded', Object.keys(parsedCoords).length, 'coordinate entries from localStorage');
+      }
+    } catch (error) {
+      console.warn('Failed to load coordinates from localStorage:', error);
+    }
+  }, []);
+  
+  // Save coordinates to localStorage when cache changes
+  const saveCoordinatesToStorage = useCallback(() => {
+    try {
+      const coordsObj: { [key: string]: { latitude: number; longitude: number } } = {};
+      nodeCoordinatesRef.current.forEach((coords, nodeId) => {
+        coordsObj[String(nodeId)] = coords;
+      });
+      localStorage.setItem('vbc-node-coordinates', JSON.stringify(coordsObj));
+    } catch (error) {
+      console.warn('Failed to save coordinates to localStorage:', error);
+    }
+  }, []);
+  
   // Store IP to coordinates cache to avoid repeated API calls
   const ipCoordinatesCache = useRef(new globalThis.Map<string, { latitude: number; longitude: number; timestamp: number }>());
 
@@ -264,6 +295,14 @@ function HomePage() {
     console.log('Processing nodes for coordinates:', nodesList.length, 'nodes');
     console.log('Current stored coordinates count:', nodeCoordinatesRef.current.size);
     
+    // Debug: Log current cache contents
+    if (nodeCoordinatesRef.current.size > 0) {
+      console.log('Current coordinate cache:');
+      nodeCoordinatesRef.current.forEach((coords, nodeId) => {
+        console.log(`  ${nodeId}: ${coords.latitude}, ${coords.longitude}`);
+      });
+    }
+    
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
       // Priority 1: If node has geo.ll data from server (geoip-lite), use it
       if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
@@ -273,6 +312,7 @@ function HomePage() {
         };
         // Store in persistent map for future reference
         nodeCoordinatesRef.current.set(node.id, coords);
+        saveCoordinatesToStorage();
         console.log(`Node ${node.id} (${node.name}) has server geo coordinates:`, coords.latitude, coords.longitude);
         return {
           ...node,
@@ -287,6 +327,7 @@ function HomePage() {
           latitude: node.latitude, 
           longitude: node.longitude 
         });
+        saveCoordinatesToStorage();
         console.log(`Node ${node.id} (${node.name}) has server coordinates:`, node.latitude, node.longitude);
         return node;
       }
@@ -310,6 +351,7 @@ function HomePage() {
           if (coords) {
             // Store coordinates for future use
             nodeCoordinatesRef.current.set(node.id, coords);
+            saveCoordinatesToStorage();
             console.log(`Node ${node.id} (${node.name}) got GeoIP-based coordinates for ${ip}:`, coords.latitude, coords.longitude);
             return {
               ...node,
@@ -359,6 +401,7 @@ function HomePage() {
       
       // Store coordinates for future use
       nodeCoordinatesRef.current.set(node.id, newCoords);
+      saveCoordinatesToStorage();
       console.log(`Node ${node.id} (${node.name}) generated fallback coordinates:`, newCoords.latitude, newCoords.longitude);
       
       return {
@@ -368,7 +411,7 @@ function HomePage() {
     }));
 
     return processedNodes;
-  }, []);
+  }, [saveCoordinatesToStorage]); // Added saveCoordinatesToStorage dependency
 
   // Last Block timer - increments every second
   useEffect(() => {
@@ -385,6 +428,7 @@ function HomePage() {
     }, 1000);
 
     return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Remove lastBlockTimestamp from dependencies to prevent timer restart
 
   // Reset last block time when new block arrives - DISABLED (handled in WebSocket events)

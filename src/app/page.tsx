@@ -754,6 +754,7 @@ function HomePage() {
       }
     };
    
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addCoordinatesToNodes, prevBestBlock, setPrevBestBlock]); // lastBlockTime is intentionally omitted to prevent infinite loop
 
   const statCards = [

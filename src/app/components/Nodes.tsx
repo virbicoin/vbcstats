@@ -447,7 +447,7 @@
       const elapsedSeconds = Math.floor(elapsedMs / 1000);
       
       // For VirBiCoin nodes, show "Live" if very recent (< 15 seconds)
-      if (node.id.toString().includes('Gvbc') && elapsedSeconds < 15) {
+      if (node.id.toString().includes('Gvbc') && elapsedSeconds < 16) {
         return 'Live';
       }
       

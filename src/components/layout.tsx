@@ -8,7 +8,7 @@ import type { Viewport } from 'next'
 
 const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
-  title: 'VirBiCoin Stats',
+  title: 'VirBiCoin Network Stats',
   description: 'Real-time stats for the VirBiCoin network',
   icons: {
     icon: '/favicon.ico',

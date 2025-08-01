@@ -289,7 +289,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
       />
       
       {/* Node count overlay */}
-      <div className="absolute bottom-4 left-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[1000]">
+      <div className="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[1000]">
         <div className="text-sm text-gray-300">
           <span className="text-cyan-400">{nodes.length}</span> nodes connected
         </div>

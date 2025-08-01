@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from "next";
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/header'
@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   description: 'Real-time VirBiCoin network statistics',
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -18,7 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="bg-gray-900">
-      <body className={`${inter.className} bg-gray-900 text-white min-h-screen flex flex-col`}>
+      <body className={`${inter.className} min-h-screen flex flex-col`}>
         <Header />
         {children}
         <Footer />

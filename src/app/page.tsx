@@ -98,6 +98,7 @@ const formatLargeNumber = (value: number): string => {
 // Get color class for Last Block time based on elapsed seconds
 const getLastBlockTimeColor = (seconds: number): string => {
   if (seconds <= 15) return 'text-white';
+  if (seconds <= 30) return 'text-yellow-400';
   if (seconds <= 60) return 'text-orange-400';
   return 'text-red-400';
 };
@@ -113,8 +114,58 @@ function HomePage() {
   const [latencyRetryCount, setLatencyRetryCount] = useState<number>(0);
   const [lastValidLatency, setLastValidLatency] = useState<number>(0);
   
+  // Stable values to prevent flickering - use first value after block update
+  const [stableAvgBlockTime, setStableAvgBlockTime] = useState<number | null>(null);
+  const [stableDifficulty, setStableDifficulty] = useState<number | null>(null);
+  const [stablePageLatency, setStablePageLatency] = useState<number>(0);
+  const [stableAvgNetworkHashrate, setStableAvgNetworkHashrate] = useState<number | null>(null);
+  const [stableUncles, setStableUncles] = useState<number | null>(null);
+  const [stableBestBlock, setStableBestBlock] = useState<number | null>(null);
+  const [stableActiveNodes, setStableActiveNodes] = useState<number | null>(null);
+  
+  // Additional stable values for Gas Price and Gas Limit to prevent '!' display
+  const [stableGasPrice, setStableGasPrice] = useState<number | null>(null);
+  const [stableGasLimit, setStableGasLimit] = useState<number | null>(null);
+  
   // Track the previous best block value to detect actual changes
   const [prevBestBlock, setPrevBestBlock] = useState<number | null>(null);
+  
+  // Track processed blocks to prevent duplicate updates for the same block
+  const processedBlocksRef = useRef(new globalThis.Map<number, number>()); // blockNumber -> timestamp when first processed
+  
+  // Track stable values block number with ref for immediate access
+  const stableValuesBlockRef = useRef<number | null>(null);
+  
+  // Track which block timer was last started for - prevent multiple timer resets for same block
+  const timerStartedForBlockRef = useRef<number | null>(null);
+  
+  // Track WebSocket connection to prevent duplicates
+  const wsConnectionRef = useRef<{
+    on: (event: string, callback: (data?: unknown) => void) => void;
+    emit?: (event: string, data?: unknown) => void;
+    write?: (data: unknown) => void;
+    end?: () => void;
+    destroy?: () => void;
+  } | null>(null);
+  
+  // Track connection state to prevent multiple initialization attempts
+  const wsInitializingRef = useRef<boolean>(false);
+  const wsConnectedRef = useRef<boolean>(false);
+  const wsReconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 5;
+
+  // Function to safely reset timer only once per block
+  const resetTimerForNewBlock = useCallback((blockNumber: number, timestamp?: number) => {
+    // Only reset timer if we haven't already started it for this block
+    if (timerStartedForBlockRef.current !== blockNumber) {
+      timerStartedForBlockRef.current = blockNumber;
+      setLastBlockTime(0);
+      setLastBlockTimestamp(timestamp || Date.now());
+      return true; // Timer was reset
+    }
+    return false; // Timer was already reset for this block
+  }, []);
   
   // Store node coordinates persistently to prevent position changes
   const nodeCoordinatesRef = useRef(new globalThis.Map<string | number, { latitude: number; longitude: number }>());
@@ -201,7 +252,10 @@ function HomePage() {
           ...coords,
           timestamp: now
         });
-        console.log(`Got coordinates from GeoIP for ${cleanIp} (${data.city || 'Unknown'}, ${data.country || 'Unknown'}):`, data.latitude, data.longitude);
+        // Only log GeoIP results occasionally to reduce console spam
+        if (Math.random() < 0.05) {
+          console.log(`Got coordinates from GeoIP for ${cleanIp} (${data.city || 'Unknown'}, ${data.country || 'Unknown'}):`, data.latitude, data.longitude);
+        }
         return coords;
       }
       
@@ -215,8 +269,46 @@ function HomePage() {
 
   // Function to add stable coordinates to nodes based on server data or IP
   const addCoordinatesToNodes = useCallback(async (nodesList: Node[]): Promise<Node[]> => {
+
     const processedNodes = await Promise.all(nodesList.map(async (node) => {
-      // Priority 1: Check if we have stored coordinates for this node first (most efficient)
+      // Priority 1: If node has geo.ll data from server (geoip-lite), use it
+      if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
+        const coords = {
+          latitude: node.geo.ll[0],
+          longitude: node.geo.ll[1]
+        };
+        // Only update if coordinates changed
+        const storedCoords = nodeCoordinatesRef.current.get(node.id);
+        if (!storedCoords || storedCoords.latitude !== coords.latitude || storedCoords.longitude !== coords.longitude) {
+          nodeCoordinatesRef.current.set(node.id, coords);
+          // Only log coordinate updates occasionally to reduce console spam
+          if (Math.random() < 0.1) { // Log only 10% of coordinate updates
+            console.log(`Node ${node.id} (${node.name}) using server GeoIP coordinates:`, coords.latitude, coords.longitude);
+          }
+        }
+        return {
+          ...node,
+          ...coords
+        };
+      }
+
+      // Priority 2: If node already has coordinates from server, use them
+      if (node.latitude && node.longitude) {
+        const storedCoords = nodeCoordinatesRef.current.get(node.id);
+        if (!storedCoords || storedCoords.latitude !== node.latitude || storedCoords.longitude !== node.longitude) {
+          nodeCoordinatesRef.current.set(node.id, {
+            latitude: node.latitude,
+            longitude: node.longitude
+          });
+          // Reduce console log frequency
+          if (Math.random() < 0.1) {
+            console.log(`Node ${node.id} (${node.name}) using server coordinates:`, node.latitude, node.longitude);
+          }
+        }
+        return node;
+      }
+
+      // Priority 3: Check if we have stored coordinates for this node
       const storedCoords = nodeCoordinatesRef.current.get(node.id);
       if (storedCoords) {
         return {
@@ -226,38 +318,17 @@ function HomePage() {
         };
       }
 
-      // Priority 2: If node has geo.ll data from server (geoip-lite), use it
-      if (node.geo?.ll && Array.isArray(node.geo.ll) && node.geo.ll.length === 2) {
-        const coords = {
-          latitude: node.geo.ll[0],
-          longitude: node.geo.ll[1]
-        };
-        // Store in persistent map for future reference (new node only)
-        nodeCoordinatesRef.current.set(node.id, coords);
-        return {
-          ...node,
-          ...coords
-        };
-      }
-      
-      // Priority 3: If node already has coordinates from server, use them
-      if (node.latitude && node.longitude) {
-        // Store in persistent map for future reference (new node only)
-        nodeCoordinatesRef.current.set(node.id, { 
-          latitude: node.latitude, 
-          longitude: node.longitude 
-        });
-        return node;
-      }
-      
-      // Priority 4: Try to get coordinates from IP address if available
+      // Priority 4: Try to get coordinates from IP address via API (which uses geoip-lite)
       const ip = extractIPFromNode(node);
       if (ip) {
         try {
           const coords = await getCoordinatesFromIP(ip);
           if (coords) {
-            // Store coordinates for future use
             nodeCoordinatesRef.current.set(node.id, coords);
+            // Reduce console log frequency for GeoIP lookups
+            if (Math.random() < 0.1) {
+              console.log(`Node ${node.id} (${node.name}) got coordinates from GeoIP API for ${ip}:`, coords.latitude, coords.longitude);
+            }
             return {
               ...node,
               ...coords,
@@ -267,50 +338,15 @@ function HomePage() {
           console.error(`Failed to get coordinates for IP ${ip}:`, error);
         }
       }
-      
-      // Fallback: Generate stable coordinates based on node ID (smaller spread)
-      const cityCoordinates = [
-        { lat: 35.6762, lng: 139.6503 }, // Tokyo
-        { lat: 40.7128, lng: -74.0060 }, // New York
-        { lat: 51.5074, lng: -0.1278 },  // London
-        { lat: 48.8566, lng: 2.3522 },   // Paris
-        { lat: 52.5200, lng: 13.4050 },  // Berlin
-        { lat: 37.7749, lng: -122.4194 }, // San Francisco
-        { lat: 55.7558, lng: 37.6176 },  // Moscow
-        { lat: 22.3193, lng: 114.1694 }, // Hong Kong
-        { lat: 1.3521, lng: 103.8198 },  // Singapore
-        { lat: -33.8688, lng: 151.2093 }, // Sydney
-      ];
-      
-      // Create a simple hash from node ID for consistent positioning
-      const nodeIdString = String(node.id);
-      let hash = 0;
-      for (let i = 0; i < nodeIdString.length; i++) {
-        const char = nodeIdString.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
+
+      // Fallback: Hide nodes without valid coordinates - let the server handle GeoIP
+      // Only log once per node to reduce console spam and log very rarely
+      const logKey = `${node.id}_logged`;
+      if (!nodeCoordinatesRef.current.has(logKey) && Math.random() < 0.01) { // Only 1% chance to log
+        console.warn(`Node ${node.id} (${node.name}) has no coordinate data - waiting for server GeoIP`);
+        nodeCoordinatesRef.current.set(logKey, { latitude: 0, longitude: 0 });
       }
-      
-      // Use hash to select city and create consistent variation
-      const cityIndex = Math.abs(hash) % cityCoordinates.length;
-      const selectedCity = cityCoordinates[cityIndex];
-      
-      // Create smaller consistent variation based on hash (reduced from ±5 to ±1 degrees)
-      const latVariation = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 1; // -0.5 to +0.5 degrees
-      const lngVariation = ((Math.abs(hash >> 16) % 1000) / 1000 - 0.5) * 1; // -0.5 to +0.5 degrees
-      
-      const newCoords = {
-        latitude: selectedCity.lat + latVariation,
-        longitude: selectedCity.lng + lngVariation,
-      };
-      
-      // Store coordinates for future use
-      nodeCoordinatesRef.current.set(node.id, newCoords);
-      
-      return {
-        ...node,
-        ...newCoords,
-      };
+      return node;
     }));
 
     return processedNodes;
@@ -360,7 +396,37 @@ function HomePage() {
     return () => clearInterval(retryTimer);
   }, []);
 
+  // Reset reconnection attempts periodically to allow recovery from network issues
   useEffect(() => {
+    const reconnectResetTimer = setInterval(() => {
+      if (reconnectAttemptsRef.current > 0 && !wsConnectedRef.current) {
+        console.log('Resetting reconnection attempts from', reconnectAttemptsRef.current, 'to 0');
+        reconnectAttemptsRef.current = 0;
+        wsInitializingRef.current = false; // Allow new connection attempts
+      }
+    }, 60000); // Reset reconnection attempts every minute
+
+    return () => clearInterval(reconnectResetTimer);
+  }, []);
+
+  useEffect(() => {
+    // Prevent multiple simultaneous connections - enhanced check with reconnect limit
+    if (wsConnectionRef.current || wsInitializingRef.current) {
+      console.log('WebSocket connection already exists or initializing, skipping...');
+      return;
+    }
+    
+    // Check reconnect attempts to prevent infinite reconnection loops
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      console.log(`Max reconnection attempts (${maxReconnectAttempts}) reached, stopping reconnection`);
+      setErrorStats(`Connection failed after ${maxReconnectAttempts} attempts`);
+      return;
+    }
+    
+    // Mark as initializing to prevent multiple attempts
+    wsInitializingRef.current = true;
+    // Don't increment attempts here - only increment on actual connection failures
+    
     // Determine the appropriate server URL based on environment
     const customWsUrl = process.env['NEXT_PUBLIC_WS_URL'];
     const isProduction = process.env.NODE_ENV === 'production';
@@ -385,16 +451,45 @@ function HomePage() {
       wsUrl = `ws://localhost:${serverPort}`;
     }
     
-    // Load Primus client library from server
+    // Load Primus client library from server - prevent duplicate script loading
+    const existingScript = document.querySelector(`script[src="${baseUrl}/primus/primus.js"]`);
+    if (existingScript) {
+      console.log('Primus script already loaded, reusing...');
+      // Script already exists, check if Primus is available
+      setTimeout(() => {
+        if (!(window as unknown as { Primus?: unknown }).Primus) {
+          console.error('Primus library not found after loading');
+          setErrorStats('Failed to load Primus WebSocket library');
+          wsInitializingRef.current = false;
+          return;
+        }
+        
+        // Continue with connection initialization
+        initializePrimusConnection();
+      }, 100);
+      return;
+    }
+    
     const script = document.createElement('script');
     script.src = `${baseUrl}/primus/primus.js`;
     script.onload = () => {
-      console.log('Primus library loaded from:', baseUrl);
+      // Double-check for duplicate script loading and initialization state
+      if (wsConnectionRef.current || !wsInitializingRef.current) {
+        console.log('WebSocket already initialized or not in initializing state, skipping...');
+        wsInitializingRef.current = false;
+        return;
+      }
       
+      console.log('Primus library loaded from:', baseUrl);
+      initializePrimusConnection();
+    };
+
+    const initializePrimusConnection = () => {
       // Check if Primus is available
       if (!(window as unknown as { Primus?: unknown }).Primus) {
         console.error('Primus library not found after loading');
         setErrorStats('Failed to load Primus WebSocket library');
+        wsInitializingRef.current = false;
         return;
       }
       
@@ -404,10 +499,18 @@ function HomePage() {
           on: (event: string, callback: (data?: unknown) => void) => void;
           emit?: (event: string, data?: unknown) => void;
           write?: (data: unknown) => void;
+          end?: () => void;
+          destroy?: () => void;
         };
+        
+        // Store the connection reference to prevent duplicates
+        wsConnectionRef.current = primus;
+        wsInitializingRef.current = false;
 
         primus.on('open', () => {
           console.log('WebSocket connection opened to:', wsUrl);
+          wsConnectedRef.current = true;
+          reconnectAttemptsRef.current = 0; // Reset reconnection attempts on successful connection
           setErrorStats("");
           // Small delay to ensure connection is fully established
           setTimeout(() => {
@@ -429,17 +532,72 @@ function HomePage() {
           const errorMessage = typeof err === 'object' && err !== null && 'message' in err 
             ? (err as { message: string }).message 
             : String(err);
-          setErrorStats(`WebSocket Error: ${errorMessage}`);
+          
+          // Increment reconnection attempts on actual errors
+          reconnectAttemptsRef.current += 1;
+          setErrorStats(`WebSocket Error: ${errorMessage} (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
         });
 
         primus.on('close', () => {
           console.log('WebSocket connection closed');
-          setErrorStats('WebSocket connection closed');
+          wsConnectedRef.current = false;
+          wsConnectionRef.current = null; // Clear connection reference to allow reconnection
+          
+          // Increment reconnection attempts on close
+          reconnectAttemptsRef.current += 1;
+          
+          // Prevent immediate reconnection with exponential backoff
+          if (wsReconnectTimeoutRef.current) {
+            clearTimeout(wsReconnectTimeoutRef.current);
+          }
+          
+          // Check if we should attempt reconnection
+          if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+            const reconnectDelay = Math.min(2000 * Math.pow(2, reconnectAttemptsRef.current - 1), 30000); // Max 30 seconds
+            console.log(`Scheduling reconnection attempt ${reconnectAttemptsRef.current} in ${reconnectDelay}ms`);
+            
+            wsReconnectTimeoutRef.current = setTimeout(() => {
+              wsInitializingRef.current = false; // Allow reconnection after delay
+              // Force a re-render to trigger reconnection by updating a state variable
+              setLastValidLatency(prev => prev); // Trigger re-render without changing value
+            }, reconnectDelay);
+            
+            setErrorStats(`Connection closed - reconnecting in ${Math.ceil(reconnectDelay/1000)}s (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+          } else {
+            setErrorStats(`Connection closed - max reconnection attempts reached`);
+            wsInitializingRef.current = false;
+          }
         });
 
         primus.on('disconnect', () => {
           console.log('WebSocket disconnected');
-          setErrorStats('WebSocket disconnected - trying to reconnect...');
+          wsConnectedRef.current = false;
+          wsConnectionRef.current = null; // Clear connection reference to allow reconnection
+          
+          // Increment reconnection attempts on disconnect
+          reconnectAttemptsRef.current += 1;
+          
+          // Prevent immediate reconnection with exponential backoff
+          if (wsReconnectTimeoutRef.current) {
+            clearTimeout(wsReconnectTimeoutRef.current);
+          }
+          
+          // Check if we should attempt reconnection
+          if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+            const reconnectDelay = Math.min(2000 * Math.pow(2, reconnectAttemptsRef.current - 1), 30000); // Max 30 seconds
+            console.log(`Scheduling reconnection attempt ${reconnectAttemptsRef.current} in ${reconnectDelay}ms`);
+            
+            wsReconnectTimeoutRef.current = setTimeout(() => {
+              wsInitializingRef.current = false; // Allow reconnection after delay
+              // Trigger reconnection by causing a re-render
+              setErrorStats(`Reconnecting... (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+            }, reconnectDelay);
+            
+            setErrorStats(`Disconnected - reconnecting in ${Math.ceil(reconnectDelay/1000)}s (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+          } else {
+            setErrorStats(`Disconnected - max reconnection attempts reached`);
+            wsInitializingRef.current = false;
+          }
         });
 
       primus.on('data', async (message: unknown) => {
@@ -455,7 +613,31 @@ function HomePage() {
           };
         };
         if (typedMessage.action === 'init' && typedMessage.data) {
-          const nodesWithCoords = await addCoordinatesToNodes(typedMessage.data.nodes || []);
+          // Only process if we have a stable connection to prevent multiple initializations
+          if (!wsConnectedRef.current) {
+            console.log('Ignoring init data - connection not stable');
+            return;
+          }
+          
+          // Only process coordinates for new nodes or if we don't have coordinates yet
+          const incomingNodes = typedMessage.data.nodes || [];
+          const needsCoordinateProcessing = incomingNodes.some(node => {
+            const stored = nodeCoordinatesRef.current.get(node.id);
+            return !stored && (!node.latitude || !node.longitude);
+          });
+          
+          let nodesWithCoords;
+          if (needsCoordinateProcessing) {
+            nodesWithCoords = await addCoordinatesToNodes(incomingNodes);
+          } else {
+            // Use existing coordinates to avoid unnecessary processing
+            nodesWithCoords = incomingNodes.map(node => {
+              const stored = nodeCoordinatesRef.current.get(node.id);
+              return stored 
+                ? { ...node, latitude: stored.latitude, longitude: stored.longitude }
+                : node;
+            });
+          }
           setNodes(nodesWithCoords);
           
           // Check if bestBlock changed before resetting timer
@@ -463,7 +645,22 @@ function HomePage() {
           const newBestBlock = newStats['bestBlock']?.value;
           
           if (newBestBlock && typeof newBestBlock === 'number') {
-            if (prevBestBlock === null || newBestBlock !== prevBestBlock) {
+            // Additional check for duplicate processing during init - increased window for more stability
+            const now = Date.now();
+            const alreadyProcessed = processedBlocksRef.current.get(newBestBlock);
+            const recentlyProcessed = alreadyProcessed ? (now - alreadyProcessed) < 15000 : false; // Increased from 10 seconds to 15 seconds for init
+            
+            if ((prevBestBlock === null || newBestBlock !== prevBestBlock) && !recentlyProcessed) {
+              // Only log block changes occasionally to reduce console spam
+              if (Math.random() < 0.1) { // Reduced from 0.3 to 0.1
+                console.log(`Init: setting bestBlock from ${prevBestBlock} to ${newBestBlock}`);
+              }
+              // Mark this block as processed
+              processedBlocksRef.current.set(newBestBlock, now);
+              
+              // Update prevBestBlock immediately to prevent duplicate processing
+              setPrevBestBlock(newBestBlock);
+              
               // Try to find the most recent block timestamp from nodes
               const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
                 node.blockTimestamp && typeof node.blockTimestamp === 'number'
@@ -473,10 +670,14 @@ function HomePage() {
                 const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
                 const maxTimestamp = Math.max(...timestamps);
                 if (maxTimestamp > 0) {
+                  // Calculate actual elapsed time since block was created
+                  const elapsedSeconds = Math.floor((now - maxTimestamp) / 1000);
+                  setLastBlockTime(elapsedSeconds);
                   setLastBlockTimestamp(maxTimestamp);
-                  // Calculate initial time difference
-                  const initialTimeDiff = Math.floor((Date.now() - maxTimestamp) / 1000);
-                  setLastBlockTime(initialTimeDiff);
+                  timerStartedForBlockRef.current = newBestBlock;
+                  if (Math.random() < 0.1) {
+                    console.log(`Init: set block ${newBestBlock} timer to ${elapsedSeconds}s ago (timestamp: ${maxTimestamp})`);
+                  }
                 }
               } else {
                 // Alternative: try to find latest block info from nodes by block number
@@ -489,43 +690,94 @@ function HomePage() {
                     (node.block! > max.block!) ? node : max
                   );
                   
-                  // If this node has lastBlockTime, use it
+                  // If this node has lastBlockTime, parse it and calculate elapsed time
                   if (maxBlockNode.lastBlockTime) {
                     const lastBlockTimeStr = String(maxBlockNode.lastBlockTime);
                     const secondsMatch = lastBlockTimeStr.match(/(\d+)/);
                     if (secondsMatch) {
-                      const seconds = parseInt(secondsMatch[1]);
-                      setLastBlockTime(seconds);
-                      const estimatedTimestamp = Date.now() - (seconds * 1000);
+                      const reportedSeconds = parseInt(secondsMatch[1]);
+                      setLastBlockTime(reportedSeconds);
+                      // Estimate timestamp from reported seconds
+                      const estimatedTimestamp = now - (reportedSeconds * 1000);
                       setLastBlockTimestamp(estimatedTimestamp);
+                      timerStartedForBlockRef.current = newBestBlock;
+                      if (Math.random() < 0.1) {
+                        console.log(`Init: set block ${newBestBlock} timer to ${reportedSeconds}s ago (from lastBlockTime)`);
+                      }
                     }
                   }
                 } else {
                   // Fallback: check if stats contains lastBlock time information
                   const statsLastBlock = newStats['lastBlock'];
                   if (statsLastBlock && typeof statsLastBlock.value === 'number' && statsLastBlock.value >= 0) {
-                    // lastBlock value is likely already in seconds since last block
-                    setLastBlockTime(Number(statsLastBlock.value));
-                    // Calculate timestamp from the elapsed time
-                    const estimatedTimestamp = Date.now() - (Number(statsLastBlock.value) * 1000);
+                    const reportedSeconds = Number(statsLastBlock.value);
+                    setLastBlockTime(reportedSeconds);
+                    // Estimate timestamp from reported seconds
+                    const estimatedTimestamp = now - (reportedSeconds * 1000);
                     setLastBlockTimestamp(estimatedTimestamp);
+                    timerStartedForBlockRef.current = newBestBlock;
+                    if (Math.random() < 0.1) {
+                      console.log(`Init: set block ${newBestBlock} timer to ${reportedSeconds}s ago (from stats)`);
+                    }
                   }
                 }
               }
-              // If no valid timestamp found, keep null values to show '--'
             }
-            setPrevBestBlock(newBestBlock); // Always update prevBestBlock during init
           }
           
           setStats(newStats);
           
-          // If we still don't have a last block time set, try to get it from the stats we just set
-          if (lastBlockTime === null && newStats['lastBlock']) {
+          // Set stable values on initialization to prevent flickering - only once per block
+          if (typeof newBestBlock === 'number' && (!stableValuesBlockRef.current || newBestBlock !== stableValuesBlockRef.current)) {
+            stableValuesBlockRef.current = newBestBlock;
+            
+            // Set stable Best Block first
+            setStableBestBlock(newBestBlock);
+            
+            if (newStats['avgBlockTime'] && typeof newStats['avgBlockTime'].value === 'number') {
+              setStableAvgBlockTime(Number(newStats['avgBlockTime'].value));
+            }
+            if (newStats['difficulty'] && typeof newStats['difficulty'].value === 'number') {
+              setStableDifficulty(Number(newStats['difficulty'].value));
+            }
+            if (newStats['avgNetworkHashrate'] && typeof newStats['avgNetworkHashrate'].value === 'number') {
+              setStableAvgNetworkHashrate(Number(newStats['avgNetworkHashrate'].value));
+            }
+            if (newStats['latency'] && typeof newStats['latency'].value === 'number') {
+              setStablePageLatency(Number(newStats['latency'].value));
+            }
+            if (newStats['uncles'] && typeof newStats['uncles'].value === 'number') {
+              setStableUncles(Number(newStats['uncles'].value));
+            }
+            if (newStats['activeNodes'] && typeof newStats['activeNodes'].value === 'number') {
+              setStableActiveNodes(Number(newStats['activeNodes'].value));
+            }
+            if (newStats['gasPrice'] && typeof newStats['gasPrice'].value === 'number') {
+              setStableGasPrice(Number(newStats['gasPrice'].value));
+            }
+            if (newStats['gasLimit'] && typeof newStats['gasLimit'].value === 'number') {
+              setStableGasLimit(Number(newStats['gasLimit'].value));
+            }
+          }
+          
+          // If we still don't have a last block time set, start from 0 for new blocks
+          if (lastBlockTime === null && newStats['lastBlock'] && typeof newBestBlock === 'number') {
+            // Check if we have lastBlock stat with actual time information
             const statsLastBlock = newStats['lastBlock'];
             if (statsLastBlock && typeof statsLastBlock.value === 'number' && statsLastBlock.value >= 0) {
-              setLastBlockTime(Number(statsLastBlock.value));
-              const estimatedTimestamp = Date.now() - (Number(statsLastBlock.value) * 1000);
+              const reportedSeconds = Number(statsLastBlock.value);
+              setLastBlockTime(reportedSeconds);
+              // Estimate timestamp from reported seconds
+              const now = Date.now();
+              const estimatedTimestamp = now - (reportedSeconds * 1000);
               setLastBlockTimestamp(estimatedTimestamp);
+              timerStartedForBlockRef.current = newBestBlock;
+              if (Math.random() < 0.1) {
+                console.log(`Init: fallback set timer to ${reportedSeconds}s ago for block ${newBestBlock}`);
+              }
+            } else {
+              // Final fallback: start from 0 if no time information available
+              resetTimerForNewBlock(newBestBlock);
             }
           }
           
@@ -548,69 +800,151 @@ function HomePage() {
         } else if (typedMessage.action === 'block' && typedMessage.data) {
           // Handle block updates - refresh all data (both nodes and stats will be updated)
           if (typedMessage.data.nodes && typedMessage.data.stats) {
-            // Full block update with nodes and stats - this is the primary case for timer reset
-            // For block updates, preserve existing coordinates instead of re-processing
-            const nodesWithPreservedCoords = typedMessage.data.nodes.map(newNode => {
-              // Check if we already have coordinates for this node
-              const existingCoords = nodeCoordinatesRef.current.get(newNode.id);
-              if (existingCoords) {
-                return {
-                  ...newNode,
-                  latitude: existingCoords.latitude,
-                  longitude: existingCoords.longitude
-                };
-              }
-              return newNode;
-            });
-            
-            // Only process coordinates for new nodes that don't have stored coordinates
-            const nodesWithCoords = await addCoordinatesToNodes(nodesWithPreservedCoords);
-            setNodes(nodesWithCoords);
-            
-            // Check if bestBlock changed before resetting timer
+            // Check if bestBlock changed FIRST to prevent duplicate processing
             const newBestBlock = typedMessage.data.stats['bestBlock']?.value;
-            if (newBestBlock && typeof newBestBlock === 'number') {
-              const shouldResetTimer = prevBestBlock === null || newBestBlock !== prevBestBlock;
-              
-              if (shouldResetTimer) {
+            const shouldResetTimer = newBestBlock && typeof newBestBlock === 'number' && 
+                                   (prevBestBlock === null || newBestBlock !== prevBestBlock);
+            
+            // Additional check: ensure we haven't processed this exact block recently
+            const now = Date.now();
+            let recentlyProcessed = false;
+            if (typeof newBestBlock === 'number') {
+              const alreadyProcessed = processedBlocksRef.current.get(newBestBlock);
+              recentlyProcessed = alreadyProcessed ? (now - alreadyProcessed) < 8000 : false; // Increased from 5 seconds to 8 seconds
+            }
+            
+            if (shouldResetTimer && !recentlyProcessed) {
+              // Only log new block detection occasionally
+              if (Math.random() < 0.1) { // Reduced from 0.3 to 0.1
                 console.log(`New block detected: ${prevBestBlock} -> ${newBestBlock}`);
-                
-                // Try to find the most recent block timestamp from nodes
-                const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
-                  node.blockTimestamp && typeof node.blockTimestamp === 'number'
-                );
-                
-                if (nodesWithTimestamp && nodesWithTimestamp.length > 0) {
-                  const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
-                  const maxTimestamp = Math.max(...timestamps);
-                  if (maxTimestamp > 0) {
-                    console.log(`Resetting Last Block timer with timestamp: ${maxTimestamp}`);
+              }
+              // Mark this block as processed
+              if (typeof newBestBlock === 'number') {
+                processedBlocksRef.current.set(newBestBlock, now);
+                // Clean up old entries (keep only last 10 blocks)
+                if (processedBlocksRef.current.size > 10) {
+                  const entries = Array.from(processedBlocksRef.current.entries());
+                  entries.sort((a, b) => a[0] - b[0]); // Sort by block number
+                  const toDelete = entries.slice(0, entries.length - 10);
+                  toDelete.forEach(([blockNum]) => processedBlocksRef.current.delete(blockNum));
+                }
+              }
+              
+              // Update prevBestBlock IMMEDIATELY to prevent duplicate processing
+              setPrevBestBlock(newBestBlock as number);
+              
+              // Try to find the most recent block timestamp from nodes
+              const nodesWithTimestamp = typedMessage.data.nodes?.filter(node => 
+                node.blockTimestamp && typeof node.blockTimestamp === 'number'
+              );
+              
+              if (nodesWithTimestamp && nodesWithTimestamp.length > 0) {
+                const timestamps = nodesWithTimestamp.map(node => node.blockTimestamp!);
+                const maxTimestamp = Math.max(...timestamps);
+                if (maxTimestamp > 0) {
+                  // For new blocks, reset to 0; for existing blocks during page load, calculate elapsed time
+                  if (prevBestBlock !== null && newBestBlock > prevBestBlock) {
+                    // This is a genuinely new block - always reset to 0
+                    const wasReset = resetTimerForNewBlock(newBestBlock as number, maxTimestamp);
+                    if (wasReset && Math.random() < 0.1) {
+                      console.log(`Block: timer reset to 0 for new block ${newBestBlock}`);
+                    }
+                  } else {
+                    // This might be page load with existing block - calculate actual elapsed time
+                    const now = Date.now();
+                    const elapsedSeconds = Math.floor((now - maxTimestamp) / 1000);
+                    setLastBlockTime(elapsedSeconds);
                     setLastBlockTimestamp(maxTimestamp);
-                    // Calculate initial time difference
-                    const initialTimeDiff = Math.floor((Date.now() - maxTimestamp) / 1000);
-                    setLastBlockTime(initialTimeDiff);
-                  } else {
-                    console.log('No valid timestamps found in nodes');
-                  }
-                } else {
-                  console.log('No nodes with timestamp found, trying fallback methods');
-                  
-                  // Fallback: Use lastBlock stat if available
-                  const statsLastBlock = typedMessage.data.stats['lastBlock'];
-                  if (statsLastBlock && typeof statsLastBlock.value === 'number' && statsLastBlock.value >= 0) {
-                    console.log(`Using stats lastBlock value: ${statsLastBlock.value} seconds`);
-                    setLastBlockTime(Number(statsLastBlock.value));
-                    // Calculate timestamp from the elapsed time
-                    const estimatedTimestamp = Date.now() - (Number(statsLastBlock.value) * 1000);
-                    setLastBlockTimestamp(estimatedTimestamp);
-                  } else {
-                    // Force reset to 0 for new blocks even without timestamp
-                    console.log('Forcing Last Block reset to 0 for new block');
-                    setLastBlockTime(0);
-                    setLastBlockTimestamp(Date.now());
+                    timerStartedForBlockRef.current = newBestBlock as number;
+                    if (Math.random() < 0.1) {
+                      console.log(`Block: set timer to ${elapsedSeconds}s ago for block ${newBestBlock}`);
+                    }
                   }
                 }
-                setPrevBestBlock(newBestBlock);
+              } else {
+                // Fallback: Use lastBlock stat if available
+                const statsLastBlock = typedMessage.data.stats['lastBlock'];
+                if (statsLastBlock && typeof statsLastBlock.value === 'number' && statsLastBlock.value >= 0) {
+                  if (prevBestBlock !== null && newBestBlock > prevBestBlock) {
+                    // New block - always reset to 0
+                    const wasReset = resetTimerForNewBlock(newBestBlock as number);
+                    if (wasReset && Math.random() < 0.1) {
+                      console.log(`Block: timer reset to 0 for new block ${newBestBlock}`);
+                    }
+                  } else {
+                    // Existing block - use reported time
+                    const reportedSeconds = Number(statsLastBlock.value);
+                    setLastBlockTime(reportedSeconds);
+                    const now = Date.now();
+                    const estimatedTimestamp = now - (reportedSeconds * 1000);
+                    setLastBlockTimestamp(estimatedTimestamp);
+                    timerStartedForBlockRef.current = newBestBlock as number;
+                    if (Math.random() < 0.1) {
+                      console.log(`Block: set timer to ${reportedSeconds}s ago for block ${newBestBlock}`);
+                    }
+                  }
+                } else {
+                  // Force reset to 0 for new blocks even without timestamp
+                  const wasReset = resetTimerForNewBlock(newBestBlock as number);
+                  if (wasReset && Math.random() < 0.1) {
+                    console.log(`Block: forced timer reset for block ${newBestBlock}`);
+                  }
+                }
+              }
+            }
+            
+            // Process nodes with coordinate preservation - avoid unnecessary coordinate processing
+            const incomingNodes = typedMessage.data.nodes;
+            const needsCoordinateProcessing = incomingNodes.some(node => {
+              const stored = nodeCoordinatesRef.current.get(node.id);
+              return !stored && (!node.latitude || !node.longitude);
+            });
+            
+            let nodesWithCoords;
+            if (needsCoordinateProcessing) {
+              nodesWithCoords = await addCoordinatesToNodes(incomingNodes);
+            } else {
+              // Use existing coordinates to avoid unnecessary processing
+              nodesWithCoords = incomingNodes.map(node => {
+                const stored = nodeCoordinatesRef.current.get(node.id);
+                return stored 
+                  ? { ...node, latitude: stored.latitude, longitude: stored.longitude }
+                  : node;
+              });
+            }
+            setNodes(nodesWithCoords);
+            
+            // Update stable values ONLY on new blocks to prevent flickering - first value wins
+            const blockStats = typedMessage.data.stats;
+            if (typeof newBestBlock === 'number' && (!stableValuesBlockRef.current || newBestBlock !== stableValuesBlockRef.current)) {
+              stableValuesBlockRef.current = newBestBlock;
+              
+              // Set stable Best Block first
+              setStableBestBlock(newBestBlock);
+              
+              if (blockStats['avgBlockTime'] && typeof blockStats['avgBlockTime'].value === 'number') {
+                setStableAvgBlockTime(Number(blockStats['avgBlockTime'].value));
+              }
+              if (blockStats['difficulty'] && typeof blockStats['difficulty'].value === 'number') {
+                setStableDifficulty(Number(blockStats['difficulty'].value));
+              }
+              if (blockStats['avgNetworkHashrate'] && typeof blockStats['avgNetworkHashrate'].value === 'number') {
+                setStableAvgNetworkHashrate(Number(blockStats['avgNetworkHashrate'].value));
+              }
+              if (blockStats['latency'] && typeof blockStats['latency'].value === 'number') {
+                setStablePageLatency(Number(blockStats['latency'].value));
+              }
+              if (blockStats['uncles'] && typeof blockStats['uncles'].value === 'number') {
+                setStableUncles(Number(blockStats['uncles'].value));
+              }
+              if (blockStats['activeNodes'] && typeof blockStats['activeNodes'].value === 'number') {
+                setStableActiveNodes(Number(blockStats['activeNodes'].value));
+              }
+              if (blockStats['gasPrice'] && typeof blockStats['gasPrice'].value === 'number') {
+                setStableGasPrice(Number(blockStats['gasPrice'].value));
+              }
+              if (blockStats['gasLimit'] && typeof blockStats['gasLimit'].value === 'number') {
+                setStableGasLimit(Number(blockStats['gasLimit'].value));
               }
             }
             
@@ -621,13 +955,12 @@ function HomePage() {
               if (node.id === typedMessage.data!.id) {
                 const updatedNode = { ...node, ...typedMessage.data };
                 
-                // If this node has a newer block timestamp, update our global timestamp
+                // If this node has a newer block timestamp, update our global timestamp only if not already set for this block
                 if (updatedNode.blockTimestamp && typeof updatedNode.blockTimestamp === 'number') {
                   setLastBlockTimestamp(currentTimestamp => {
                     if (!currentTimestamp || updatedNode.blockTimestamp! > currentTimestamp) {
-                      // Calculate time difference for the new timestamp
-                      const timeDiff = Math.floor((Date.now() - updatedNode.blockTimestamp!) / 1000);
-                      setLastBlockTime(timeDiff);
+                      // Only update timestamp, don't reset timer count during individual updates
+                      // Timer reset should only happen during block/init actions
                       return updatedNode.blockTimestamp!;
                     }
                     return currentTimestamp;
@@ -644,21 +977,34 @@ function HomePage() {
           
           // Update individual node stats without changing coordinates
           if (typedMessage.data.id && typedMessage.data.stats) {
-            setNodes(prev => prev.map(node => 
-              node.id === typedMessage.data!.id ? { ...node, stats: typedMessage.data!.stats } : node
-            ));
+            setNodes(prev => prev.map(node => {
+              if (node.id === typedMessage.data!.id) {
+                // Only update if stats actually changed
+                const newStats = typedMessage.data!.stats;
+                const currentStats = (node as unknown as { stats?: unknown }).stats;
+                if (JSON.stringify(currentStats) !== JSON.stringify(newStats)) {
+                  return { ...node, stats: newStats } as Node;
+                }
+                return node;
+              }
+              return node;
+            }));
           }
           
-          // For global stats updates, only update non-bestBlock stats
+          // For global stats updates, only update non-bestBlock and non-lastBlock stats
           if (typedMessage.data.stats && !typedMessage.data.id) {
-            // Create a copy of stats without bestBlock to prevent interference
-            const statsWithoutBestBlock = { ...typedMessage.data.stats };
-            delete statsWithoutBestBlock['bestBlock'];
+            // Create a copy of stats without bestBlock and lastBlock to prevent interference
+            const statsWithoutCriticalValues = { ...typedMessage.data.stats };
+            delete statsWithoutCriticalValues['bestBlock'];
+            delete statsWithoutCriticalValues['lastBlock']; // Prevent lastBlock timer interference
             
-            // Only update non-bestBlock stats
+            // DO NOT UPDATE stable values during stats updates - only use block update values
+            // This prevents flickering by ensuring only the first value after block update is used
+            
+            // Only update non-critical stats
             setStats(prevStats => ({
               ...prevStats,
-              ...statsWithoutBestBlock
+              ...statsWithoutCriticalValues
             }));
           }
         } else if (typedMessage.action === 'pending' && typedMessage.data) {
@@ -666,24 +1012,32 @@ function HomePage() {
           
           // Update individual node pending stats without changing coordinates or bestBlock
           if (typedMessage.data.id) {
-            setNodes(prev => prev.map(node => 
-              node.id === typedMessage.data!.id ? { 
-                ...node, 
-                pending: typedMessage.data!.pending || 0 
-              } : node
-            ));
+            setNodes(prev => prev.map(node => {
+              if (node.id === typedMessage.data!.id) {
+                const newPending = typedMessage.data!.pending || 0;
+                if (node.pending !== newPending) {
+                  return { ...node, pending: newPending };
+                }
+                return node;
+              }
+              return node;
+            }));
           }
         } else if (typedMessage.action === 'latency' && typedMessage.data) {
           // Handle latency updates - do NOT process bestBlock
           
           // Update individual node latency without changing coordinates or bestBlock
           if (typedMessage.data.id) {
-            setNodes(prev => prev.map(node => 
-              node.id === typedMessage.data!.id ? { 
-                ...node, 
-                latency: typedMessage.data!.latency || 0 
-              } : node
-            ));
+            setNodes(prev => prev.map(node => {
+              if (node.id === typedMessage.data!.id) {
+                const newLatency = typedMessage.data!.latency || 0;
+                if (node.latency !== newLatency) {
+                  return { ...node, latency: newLatency };
+                }
+                return node;
+              }
+              return node;
+            }));
           }
         } else if (typedMessage.action === 'charts' && typedMessage.data) {
           // Handle charts data if needed
@@ -730,6 +1084,7 @@ function HomePage() {
             // Update both state variables
             setPageLatency(newLatency);
             setLastValidLatency(newLatency);
+            // DO NOT update stable latency here - only use block update values to prevent flickering
             setStats(prevStats => ({
               ...prevStats,
               pageLatency: {
@@ -752,29 +1107,54 @@ function HomePage() {
       } catch (err) {
         console.error('Failed to initialize Primus:', err);
         setErrorStats("Failed to initialize Primus");
+        wsInitializingRef.current = false;
+        wsConnectionRef.current = null;
+        reconnectAttemptsRef.current += 1; // Increment on initialization failure
       }
-    };
-
-    script.onerror = () => {
-      setErrorStats("Failed to load Primus");
     };
 
     script.onerror = (error) => {
       console.error('Failed to load Primus library from:', baseUrl, error);
       setErrorStats(`Failed to load WebSocket library from ${baseUrl}`);
       setLoadingStats(false);
+      wsInitializingRef.current = false;
+      reconnectAttemptsRef.current += 1; // Increment on script load failure
     };
     
     document.head.appendChild(script);
 
     return () => {
+      // Clean up reconnection timeout
+      if (wsReconnectTimeoutRef.current) {
+        clearTimeout(wsReconnectTimeoutRef.current);
+        wsReconnectTimeoutRef.current = null;
+      }
+      
+      // Clean up WebSocket connection
+      if (wsConnectionRef.current) {
+        try {
+          if (typeof wsConnectionRef.current.end === 'function') {
+            wsConnectionRef.current.end();
+          } else if (typeof wsConnectionRef.current.destroy === 'function') {
+            wsConnectionRef.current.destroy();
+          }
+        } catch (error) {
+          console.warn('Error closing WebSocket connection:', error);
+        }
+        wsConnectionRef.current = null;
+        wsConnectedRef.current = false;
+        wsInitializingRef.current = false;
+        reconnectAttemptsRef.current = 0; // Reset reconnection attempts
+      }
+      
+      // Clean up script element
       if (document.head.contains(script)) {
         document.head.removeChild(script);
       }
     };
    
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addCoordinatesToNodes, prevBestBlock]); // lastBlockTime is intentionally omitted to prevent infinite loop
+  }, []); // Empty dependency array to prevent reconnection loops
 
   const statCards = [
     { id: 'bestBlock', icon: <FaCube className="text-blue-400" />, label: "Best Block" },
@@ -787,10 +1167,35 @@ function HomePage() {
 
   const formatStatValue = (card: { id: string }) => {
     if (loadingStats) return '--';
-    if (errorStats || !stats[card.id]) return '!';
-
+    if (errorStats) return '!';
+    
+    // For new blocks, use stable values to prevent showing '!' during data updates
     const stat = stats[card.id];
-    if (stat === undefined || stat.value === undefined) return '--';
+    if (!stat || stat === undefined || stat.value === undefined) {
+      // Use stable values as fallback to prevent '!' display during block updates
+      switch (card.id) {
+        case 'bestBlock':
+          return stableBestBlock !== null ? stableBestBlock.toLocaleString() : '--';
+        case 'avgBlockTime':
+          return stableAvgBlockTime !== null ? `${stableAvgBlockTime.toFixed(2)} s` : '--';
+        case 'difficulty':
+          return stableDifficulty !== null ? `${(stableDifficulty / 1e9).toFixed(2)} GH` : '--';
+        case 'avgNetworkHashrate':
+          return stableAvgNetworkHashrate !== null ? `${(stableAvgNetworkHashrate / 1e9).toFixed(2)} GH/s` : '--';
+        case 'uncles':
+          return stableUncles !== null ? stableUncles.toString() : '--';
+        case 'activeNodes':
+          return stableActiveNodes !== null ? stableActiveNodes.toLocaleString() : '--';
+        case 'lastBlock':
+          return lastBlockTime !== null ? `${lastBlockTime} s ago` : '--';
+        case 'gasPrice':
+          return stableGasPrice !== null ? `${Math.floor(weiToGwei(stableGasPrice))} Gniku` : '--';
+        case 'gasLimit':
+          return stableGasLimit !== null ? formatLargeNumber(stableGasLimit) : '--';
+        default:
+          return '--';
+      }
+    }
 
     if (card.id === 'uptime' && typeof stat.value === 'object' && stat.value !== null) {
       if (stat.value.lastStatus !== undefined) {
@@ -808,26 +1213,40 @@ function HomePage() {
       case 'lastBlock':
         return lastBlockTime !== null ? `${lastBlockTime} s ago` : '--';
       case 'avgBlockTime':
-        // GVBC specific: 13 seconds block time
-        const blockTime = Number(stat.value);
+        // Use stable value to prevent flickering
+        const blockTime = stableAvgBlockTime !== null ? stableAvgBlockTime : Number(stat.value);
         return `${blockTime.toFixed(2)} s`;
       case 'avgNetworkHashrate':
-        // GVBC specific: 4.3 GH/s
-        const hashrate = Number(stat.value);
+        // Use stable value to prevent flickering
+        const hashrate = stableAvgNetworkHashrate !== null ? stableAvgNetworkHashrate : Number(stat.value);
         return `${(hashrate / 1e9).toFixed(2)} GH/s`;
       case 'difficulty':
-        // GVBC specific: 94 GH
-        const difficulty = Number(stat.value);
+        // Use stable value to prevent flickering
+        const difficulty = stableDifficulty !== null ? stableDifficulty : Number(stat.value);
         return `${(difficulty / 1e9).toFixed(2)} GH`;
       case 'gasPrice':
-        // Convert wei to gwei and truncate decimal places for Gniku display
-        const priceInGwei = weiToGwei(Number(stat.value));
+        // Use stable value to prevent flickering, fallback to current stat
+        const gasPrice = stableGasPrice !== null ? stableGasPrice : Number(stat.value);
+        const priceInGwei = weiToGwei(gasPrice);
         return `${Math.floor(priceInGwei)} Gniku`;
+      case 'gasLimit':
+        // Use stable value to prevent flickering, fallback to current stat  
+        const gasLimit = stableGasLimit !== null ? stableGasLimit : Number(stat.value);
+        return formatLargeNumber(gasLimit);
       case 'bestBlock':
+        // Use stable value to prevent constant changes - prioritize stable value more strongly
+        const bestBlock = stableBestBlock !== null ? stableBestBlock : (
+          stats[card.id] && typeof stats[card.id].value === 'number' ? Number(stats[card.id].value) : 0
+        );
+        return bestBlock.toLocaleString();
       case 'activeNodes':
-        return Number(stat.value).toLocaleString();
+        // Use stable value to prevent constant changes
+        const activeNodes = stableActiveNodes !== null ? stableActiveNodes : Number(stat.value);
+        return activeNodes.toLocaleString();
       case 'uncles':
-        return Number(stat.value).toString();
+        // Use stable value to prevent flickering
+        const uncles = stableUncles !== null ? stableUncles : Number(stat.value);
+        return uncles.toString();
       default:
         if (typeof stat.value === 'object' && stat.value !== null) {
           return JSON.stringify(stat.value);
@@ -848,7 +1267,10 @@ function HomePage() {
               <div className="flex items-center justify-between mb-2">
                 {React.cloneElement(card.icon, { className: "text-3xl " + card.icon.props.className })}
               </div>
-              <div className={`text-2xl font-bold mb-1 ${card.id === 'lastBlock' ? getLastBlockTimeColor(lastBlockTime || 0) : 'text-white'}`}>
+              <div className={`text-2xl font-bold mb-1 ${
+                card.id === 'lastBlock' ? getLastBlockTimeColor(lastBlockTime || 0) : 
+                'text-white'
+              }`}>
                 {formatStatValue(card)}
               </div>
               <div className="text-sm text-gray-400 uppercase tracking-wide">{card.label}</div>
@@ -864,7 +1286,12 @@ function HomePage() {
               <FaUsers className="text-3xl text-indigo-400" />
             </div>
             <div className="text-2xl font-bold text-white mb-1">
-              {loadingStats ? '--' : errorStats || !stats['activeNodes'] ? '!' : Number(stats['activeNodes'].value).toLocaleString()}/{nodes.length}
+              {loadingStats ? '--' : errorStats ? '!' : (() => {
+                // Use stable value to prevent constant changes and '!' during updates
+                const activeNodes = stableActiveNodes !== null ? stableActiveNodes : 
+                  (stats['activeNodes'] && typeof stats['activeNodes'].value === 'number' ? Number(stats['activeNodes'].value) : 0);
+                return activeNodes > 0 ? `${activeNodes.toLocaleString()}/${nodes.length}` : '--';
+              })()}
             </div>
             <div className="text-sm text-gray-400 uppercase tracking-wide">Active Nodes</div>
           </div>
@@ -875,9 +1302,16 @@ function HomePage() {
               <FaMoneyBillWave className="text-3xl text-emerald-400" />
             </div>
             <div className="text-2xl font-bold text-white mb-1">
-              {loadingStats ? '--' : errorStats || !stats['gasPrice'] ? '!' : (() => {
-                const priceInGwei = weiToGwei(Number(stats['gasPrice'].value));
-                return `${Math.floor(priceInGwei)} Gniku`;
+              {loadingStats ? '--' : errorStats ? '!' : (() => {
+                // Use stable value to prevent '!' during updates, fallback to current stat
+                if (stableGasPrice !== null) {
+                  const priceInGwei = weiToGwei(stableGasPrice);
+                  return `${Math.floor(priceInGwei)} Gniku`;
+                } else if (stats['gasPrice'] && typeof stats['gasPrice'].value === 'number') {
+                  const priceInGwei = weiToGwei(Number(stats['gasPrice'].value));
+                  return `${Math.floor(priceInGwei)} Gniku`;
+                }
+                return '--';
               })()}
             </div>
             <div className="text-sm text-gray-400 uppercase tracking-wide">Gas Price</div>
@@ -889,7 +1323,15 @@ function HomePage() {
               <FaSignal className="text-3xl text-amber-400" />
             </div>
             <div className="text-2xl font-bold text-white mb-1">
-              {loadingStats ? '--' : errorStats || !stats['gasLimit'] ? '!' : formatLargeNumber(Number(stats['gasLimit'].value))}
+              {loadingStats ? '--' : errorStats ? '!' : (() => {
+                // Use stable value to prevent '!' during updates, fallback to current stat
+                if (stableGasLimit !== null) {
+                  return formatLargeNumber(stableGasLimit);
+                } else if (stats['gasLimit'] && typeof stats['gasLimit'].value === 'number') {
+                  return formatLargeNumber(Number(stats['gasLimit'].value));
+                }
+                return '--';
+              })()}
             </div>
             <div className="text-sm text-gray-400 uppercase tracking-wide">Gas Limit</div>
           </div>
@@ -906,8 +1348,10 @@ function HomePage() {
             </div>
             <div className="text-2xl font-bold text-white mb-1">
               {(() => {
-                // Priority order: stats > pageLatency > lastValidLatency > fallback
-                if (stats['pageLatency']?.value && typeof stats['pageLatency'].value === 'number' && stats['pageLatency'].value > 0) {
+                // Priority order: stablePageLatency > stats > pageLatency > lastValidLatency > fallback
+                if (stablePageLatency > 0) {
+                  return `${stablePageLatency} ms`;
+                } else if (stats['pageLatency']?.value && typeof stats['pageLatency'].value === 'number' && stats['pageLatency'].value > 0) {
                   return `${stats['pageLatency'].value} ms`;
                 } else if (pageLatency > 0) {
                   return `${pageLatency} ms`;

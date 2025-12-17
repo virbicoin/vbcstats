@@ -16,9 +16,6 @@ const nextConfig: NextConfig = {
   // Server external packages
   serverExternalPackages: ['geoip-lite'],
 
-  // Output configuration for production
-  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
-
   // Proxy websocket and API endpoints to backend server (development only)
   async rewrites() {
     if (process.env.NODE_ENV !== 'development') return [];

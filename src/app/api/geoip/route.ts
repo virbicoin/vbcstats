@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const ip = searchParams.get('ip');
@@ -22,8 +26,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Dynamic import to avoid build-time issues
-    const geoip = await import('geoip-lite');
-    const geo = geoip.default.lookup(ip);
+    let geo = null;
+    try {
+      const geoip = await import('geoip-lite');
+      geo = geoip.default.lookup(ip);
+    } catch (geoError) {
+      console.error('GeoIP module load error:', geoError);
+      return NextResponse.json({ error: 'GeoIP service unavailable' }, { status: 503 });
+    }
     
     if (geo && geo.ll && geo.ll.length === 2) {
       const [latitude, longitude] = geo.ll;

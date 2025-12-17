@@ -83,13 +83,22 @@ const Icon: React.FC<IconProps> = ({ name, className = "w-5 h-5" }) => {
 
 const StatCard: React.FC<StatCardProps> = ({ icon, label, value, className = "text-blue-400" }) => {
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 hover:bg-gray-750 transition-all duration-300">
-      <div className="flex items-center mb-2">
-        <Icon name={icon} className={`w-4 h-4 mr-2 ${className}`} />
-        <span className="text-xs font-medium text-gray-400">{label}</span>
-      </div>
-      <div className={`text-lg font-semibold ${className}`}>
-        {value}
+    <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-5 
+                    hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 
+                    transition-all duration-300 ease-out overflow-hidden">
+      {/* Subtle glow effect on hover */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      
+      <div className="relative z-10">
+        <div className="flex items-center gap-2 mb-3">
+          <div className={`p-2 rounded-lg bg-blue-500/10 ${className}`}>
+            <Icon name={icon} className="w-4 h-4" />
+          </div>
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</span>
+        </div>
+        <div className={`text-2xl font-bold tracking-tight ${className}`}>
+          {value}
+        </div>
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarC
 import dynamic from "next/dynamic";
 
 const Map = dynamic(() => import('../Map'), {
-  loading: () => <div className="w-full h-full bg-[#111] border border-[#222] flex items-center justify-center"><p className="text-gray-400">Loading Map...</p></div>,
+  loading: () => <div className="w-full h-full bg-[#0d1421] border border-[#1e3a5f] flex items-center justify-center"><p className="text-gray-400">Loading Map...</p></div>,
   ssr: false,
 });
 
@@ -120,7 +120,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
   return (
     <div className="grid grid-cols-4 gap-6">
       {/* Block Time Chart - top left */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
+      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Block Time</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
@@ -157,7 +157,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Difficulty Chart - top center left */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
+      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Difficulty</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
@@ -196,7 +196,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Transactions Chart - top center right */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
+      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Transactions</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
@@ -235,7 +235,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Block Propagation Chart - top right */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
+      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Block Propagation</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
@@ -272,7 +272,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Uncle Count Chart - bottom left */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
+      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Uncle Count</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
@@ -305,7 +305,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Gas Spending Chart - bottom center left */}
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-64">
+      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
         <h3 className="text-lg font-semibold text-white mb-4">Gas Spending</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
@@ -344,9 +344,9 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Network Map - bottom right, spans 2 columns */}
-      <div className="col-span-2 bg-gray-900 border border-gray-700 rounded-lg p-6 h-64 relative">
+      <div className="col-span-2 bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64 relative">
         <h3 className="text-lg font-semibold text-white mb-4 relative z-10">Network Map</h3>
-        <div className="absolute inset-6 bg-gray-800 rounded overflow-hidden">
+        <div className="absolute inset-6 bg-[#0d1421] rounded overflow-hidden">
           <Map nodes={nodes} />
         </div>
       </div>

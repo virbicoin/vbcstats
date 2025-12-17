@@ -6,28 +6,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const compat = new FlatCompat({
-    baseDirectory: __dirname,
+  baseDirectory: __dirname,
 });
 
 const eslintConfig = [
-    ...compat.extends("next/core-web-vitals", "next/typescript"),
-    {
-        // 除外設定
-        ignores: [
-            "lib/**/*",  // lib ディレクトリ全体を除外
-            "backup/**/*", // backup ディレクトリも除外
-            "server.js", // サーバーファイルも除外
-            "bin/**/*"   // bin ディレクトリも除外
-        ]
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    ignores: [
+      "lib/**/*",
+      "backup/**/*",
+      "server.js",
+      "server-simple.js",
+      "bin/**/*",
+      ".next/**/*",
+      "node_modules/**/*",
+    ],
+  },
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
-    {
-        // Node.js ファイル用の設定（CommonJS を許可）
-        files: ["server.js", "lib/**/*.js", "bin/**/*"],
-        rules: {
-            "@typescript-eslint/no-require-imports": "off",
-            "@typescript-eslint/no-unused-vars": "off"
-        }
-    }
+  },
 ];
 
 export default eslintConfig;

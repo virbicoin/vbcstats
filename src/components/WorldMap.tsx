@@ -70,7 +70,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = "" }) => {
 
   if (!isClient) {
     return (
-      <div className={`world-map-container bg-gray-800 rounded-lg border border-gray-700 p-4 ${className}`}>
+      <div className={`world-map-container bg-[#0d1421] rounded-lg border border-[#1e3a5f] p-4 ${className}`}>
         <div className="flex items-center mb-6">
           <span className="text-xl font-semibold text-gray-100">World Map</span>
         </div>
@@ -82,7 +82,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = "" }) => {
   }
 
   return (
-    <div className={`world-map-container bg-gray-800 rounded-lg border border-gray-700 p-4 ${className}`}>
+    <div className={`world-map-container bg-[#0d1421] rounded-lg border border-[#1e3a5f] p-4 ${className}`}>
       <div className="relative">
         <MapContainer
           center={[35.0, 0.0]} // South of London coordinates
@@ -120,7 +120,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = "" }) => {
         </MapContainer>
 
         {/* Legend */}
-        <div className="absolute top-6 right-6 bg-gray-900/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-gray-700/50">
+        <div className="absolute top-6 right-6 bg-[#0d1421]/90 backdrop-blur-sm rounded-xl p-4 shadow-2xl border border-[#1e3a5f]/50">
           <div className="text-sm font-medium text-gray-200 mb-3">Node Status</div>
           <div className="space-y-2">
             <div className="flex items-center">

@@ -35,7 +35,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang='en'>
-      <body className={`${inter.className} bg-gray-900 text-gray-200 min-h-screen flex flex-col`}>
+      <body className={`${inter.className} container-full bg-gray-900 text-gray-200 min-h-screen flex flex-col`}>
         <Header />
         <div className='flex-grow'>
           {children}

@@ -14,12 +14,12 @@ import dynamic from "next/dynamic";
 // };
 
 const Charts = dynamic(() => import('./components/Charts').then(mod => ({ default: mod.default })), {
-  loading: () => <div className="w-full h-full bg-gray-800 rounded flex items-center justify-center"><p className="text-gray-400">Loading Chart...</p></div>,
+  loading: () => <div className="w-full h-full bg-[#0d1421] rounded flex items-center justify-center"><p className="text-gray-400">Loading Chart...</p></div>,
   ssr: false,
 });
 
 const Nodes = dynamic(() => import('./components/Nodes'), {
-  loading: () => <div className="w-full h-full bg-gray-800 rounded flex items-center justify-center"><p className="text-gray-400">Loading Nodes...</p></div>,
+  loading: () => <div className="w-full h-full bg-[#0d1421] rounded flex items-center justify-center"><p className="text-gray-400">Loading Nodes...</p></div>,
   ssr: false,
 });
 
@@ -1159,7 +1159,7 @@ function HomePage() {
   const statCards = [
     { id: 'bestBlock', icon: <FaCube className="text-blue-400" />, label: "Best Block" },
     { id: 'uncles', icon: <FaLayerGroup className="text-purple-400" />, label: "Uncles" },
-    { id: 'lastBlock', icon: <FaClock className="text-green-400" />, label: "Last Block" },
+    { id: 'lastBlock', icon: <FaClock className="text-blue-400" />, label: "Last Block" },
     { id: 'avgBlockTime', icon: <FaStopwatch className="text-orange-400" />, label: "Avg Block Time" },
     { id: 'avgNetworkHashrate', icon: <FaSignal className="text-cyan-400" />, label: "Avg Network Hashrate" },
     { id: 'difficulty', icon: <FaHashtag className="text-red-400" />, label: "Difficulty" },
@@ -1263,7 +1263,7 @@ function HomePage() {
         {/* Statistics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
           {statCards.map((card) => (
-            <div key={card.id} className="bg-gray-900 border border-gray-700 rounded-lg p-6 hover:bg-gray-800 transition-colors">
+            <div key={card.id} className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
               <div className="flex items-center justify-between mb-2">
                 {React.cloneElement(card.icon, { className: "text-3xl " + card.icon.props.className })}
               </div>
@@ -1281,7 +1281,7 @@ function HomePage() {
         {/* Additional Statistics Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Active Nodes */}
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 hover:bg-gray-800 transition-colors">
+          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
             <div className="flex items-center justify-between mb-2">
               <FaUsers className="text-3xl text-indigo-400" />
             </div>
@@ -1297,7 +1297,7 @@ function HomePage() {
           </div>
 
           {/* Gas Price */}
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 hover:bg-gray-800 transition-colors">
+          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
             <div className="flex items-center justify-between mb-2">
               <FaMoneyBillWave className="text-3xl text-emerald-400" />
             </div>
@@ -1318,7 +1318,7 @@ function HomePage() {
           </div>
 
           {/* Gas Limit */}
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 hover:bg-gray-800 transition-colors">
+          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
             <div className="flex items-center justify-between mb-2">
               <FaSignal className="text-3xl text-amber-400" />
             </div>
@@ -1337,7 +1337,7 @@ function HomePage() {
           </div>
 
           {/* Page Latency */}
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 hover:bg-gray-800 transition-colors">
+          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
             <div className="flex items-center justify-between mb-2">
               <FaClock className="text-3xl text-pink-400" />
               {latencyRetryCount > 2 && (

@@ -314,7 +314,7 @@
       if (!active) return 'text-gray-400';
       if (peers <= 1) return 'text-red-400';
       if (peers < 4) return 'text-yellow-400';
-      return 'text-green-400';
+      return 'text-blue-400';
     };
 
     const getLatencyClass = (node: Node) => {
@@ -323,7 +323,7 @@
       const latency = node.stats?.latency ?? (typeof node.latency === 'object' ? parseInt(node.latency?.latency || '0') : (node.latency ? parseInt(String(node.latency)) : 0));
       
       if (!active) return 'text-red-400';
-      if (latency <= 100) return 'text-green-400';
+      if (latency <= 100) return 'text-blue-400';
       if (latency <= 1000) return 'text-yellow-400';
       return 'text-red-400';
     };
@@ -335,7 +335,7 @@
       
       if (!active) return 'text-gray-400';
       if (blockNumber < bestBlock) return 'text-yellow-400';
-      return 'text-green-400'; // Latest block is always green
+      return 'text-blue-400'; // Latest block is always green
     };
 
     const getBlockHashClass = (node: Node, bestBlock: number) => {
@@ -345,7 +345,7 @@
       
       if (!active) return 'text-gray-400';
       if (blockNumber < bestBlock) return 'text-yellow-400';
-      return 'text-green-400'; // Latest block hash is always green
+      return 'text-blue-400'; // Latest block hash is always green
     };
 
     const getMiningClass = (node: Node) => {
@@ -354,12 +354,12 @@
       const mining = node.stats?.mining ?? node.mining ?? false;
       
       if (!active) return 'text-gray-400';
-      return mining ? 'text-green-400' : 'text-red-400';
+      return mining ? 'text-blue-400' : 'text-red-400';
     };
 
     const getUptimeClass = (uptime: number, active: boolean) => {
       if (!active) return 'text-gray-400';
-      if (uptime >= 95) return 'text-green-400';
+      if (uptime >= 95) return 'text-blue-400';
       if (uptime >= 75) return 'text-yellow-400';
       return 'text-red-400';
     };
@@ -410,7 +410,7 @@
       
       // Check if the formatted block time is "Live" and return green
       const blockTimeText = formatBlockTime(node);
-      if (blockTimeText === 'Live') return 'text-green-400';
+      if (blockTimeText === 'Live') return 'text-blue-400';
       
       // If node is on the latest block, apply time-based coloring
       if (blockNumber >= bestBlock) {
@@ -646,13 +646,13 @@
     };
 
     return (
-      <div className="bg-[#111] text-white p-6 rounded-lg border border-[#222]">
+      <div className="bg-[#0d1421] text-white p-6 rounded-lg border border-[#1e3a5f]">
         <h2 className="text-xl font-bold mb-4">Nodes</h2>
         
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-700">
+              <tr className="text-gray-400 border-b border-[#1e3a5f]">
                 <th className="text-left p-2 w-8">📌</th>
                 <th className="text-left p-2 w-36">
                   <button 
@@ -802,7 +802,7 @@
                 sortedNodes.map((node) => (
                   <tr
                     key={node.id}
-                    className={`border-b border-gray-800 hover:bg-gray-800/50 ${getNodeClass(node)}`}
+                    className={`border-b border-gray-800 hover:bg-[#0d1421]/50 ${getNodeClass(node)}`}
                   >
                     <td className="p-2 text-center">
                       <button
@@ -810,7 +810,7 @@
                         className="hover:scale-110 transition-transform cursor-pointer"
                       >
                         {pinnedNodes.has(node.id) ? (
-                          <span className="text-green-400">📌</span>
+                          <span className="text-blue-400">📌</span>
                         ) : (
                           <span className="text-gray-600 hover:text-gray-400">⚪</span>
                         )}
@@ -820,7 +820,7 @@
                       <div className="font-medium">{node.info?.name || node.name}</div>
                     </td>
                     <td className="p-2">
-                      <div className="text-xs text-green-400">
+                      <div className="text-xs text-blue-400">
                         {stableNodeTypes.get(node.id) || node.info?.node || node.type || '--'}
                       </div>
                     </td>

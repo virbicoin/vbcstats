@@ -36,9 +36,9 @@
     "build": "next build && ./scripts/copy-geoip-data.sh",
     "next-start": "bash -c 'set -a; [ -f .env ] && source .env; set +a; next start -p \"$PORT\"'",
     "start": "concurrently \"npm:server-dev\" \"npm:next-start\"",
-    "check": "next lint && tsc --noEmit",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix"
+    "check": "eslint src && tsc --noEmit",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -65,6 +65,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
+    "@eslint/js": "^9.39.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/body-parser": "^1.19.6",
     "@types/cors": "^2.8.19",
@@ -85,10 +86,12 @@
     "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
     "eslint-config-next": "16.0.10",
+    "globals": "^16.5.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.50.0"
   }
 }

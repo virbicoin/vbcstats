@@ -1153,7 +1153,6 @@ function HomePage() {
       }
     };
    
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array to prevent reconnection loops
 
   const statCards = [

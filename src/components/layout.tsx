@@ -1,12 +1,12 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import Header from '@/components/header'
-import Footer from '@/components/footer'
-import type { ReactNode } from 'react'
-import type { Viewport } from 'next'
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import Header from '@/components/header';
+import Footer from '@/components/footer';
+import type { ReactNode } from 'react';
+import type { Viewport } from 'next';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'VirBiCoin Network Stats',
   description: 'Real-time stats for the VirBiCoin network',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
       },
     ],
   },
-}
+};
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -34,12 +34,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang='en'>
-      <body className={`${inter.className} container-full bg-gray-900 text-gray-200 min-h-screen flex flex-col`}>
+    <html lang="en">
+      <body
+        className={`${inter.className} container-full bg-gray-900 text-gray-200 min-h-screen flex flex-col`}
+      >
         <Header />
-        <div className='flex-grow'>
-          {children}
-        </div>
+        <div className="flex-grow">{children}</div>
         <Footer />
       </body>
     </html>

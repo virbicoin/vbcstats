@@ -1,6 +1,6 @@
 {
   "name": "vbc-netstats",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "A web application for visualizing VBC blockchain statistics.",
   "author": "Aoi Emerauda",
@@ -36,13 +36,15 @@
     "build": "next build && ./scripts/copy-geoip-data.sh",
     "next-start": "bash -c 'set -a; [ -f .env ] && source .env; set +a; next start -p \"$PORT\"'",
     "start": "concurrently \"npm:server-dev\" \"npm:next-start\"",
-    "check": "eslint src && tsc --noEmit",
+    "check": "eslint src && tsc --noEmit && npm run format:check",
     "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "body-parser": "^2.2.1",
+    "body-parser": "^2.2.2",
     "chalk": "^5.6.2",
     "cors": "^2.8.5",
     "d3": "^7.9.0",
@@ -51,7 +53,7 @@
     "geoip-lite": "^1.4.10",
     "leaflet": "^1.9.4",
     "lodash": "^4.17.21",
-    "next": "^16.0.10",
+    "next": "^16.1.3",
     "primus": "^8.0.9",
     "primus-client": "^7.3.4",
     "primus-emit": "^1.0.0",
@@ -61,7 +63,7 @@
     "react-icons": "^5.5.0",
     "react-leaflet": "^5.0.0",
     "recharts": "^3.6.0",
-    "ws": "^8.18.3"
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
@@ -74,24 +76,32 @@
     "@types/express": "^5.0.6",
     "@types/geoip-lite": "^1.4.4",
     "@types/leaflet": "^1.9.21",
-    "@types/lodash": "^4.17.21",
-    "@types/node": "^25.0.3",
+    "@types/lodash": "^4.17.23",
+    "@types/node": "^25.0.9",
     "@types/primus": "^7.3.9",
-    "@types/react": "^19.2.7",
+    "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
-    "@typescript-eslint/eslint-plugin": "^8.50.0",
-    "@typescript-eslint/parser": "^8.50.0",
+    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/parser": "^8.53.0",
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
-    "eslint-config-next": "16.0.10",
-    "globals": "^16.5.0",
+    "eslint-config-next": "^16.1.3",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.0.0",
     "postcss": "^8.5.6",
+    "prettier": "^3.8.0",
     "tailwindcss": "^4.1.18",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.50.0"
+    "typescript-eslint": "^8.53.0"
+  },
+  "overrides": {
+    "typescript-eslint": "^8.53.0",
+    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/parser": "^8.53.0",
+    "eslint": "^9.39.2"
   }
 }

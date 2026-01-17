@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -48,15 +48,20 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<globalThis.Map<string | number, L.Marker>>(new globalThis.Map());
-  
+
   // Track node states to prevent unnecessary marker updates
-  const nodeStatesRef = useRef<globalThis.Map<string | number, {
-    mining: boolean;
-    block: number;
-    hash: string;
-    city?: string;
-    country?: string;
-  }>>(new globalThis.Map());
+  const nodeStatesRef = useRef<
+    globalThis.Map<
+      string | number,
+      {
+        mining: boolean;
+        block: number;
+        hash: string;
+        city?: string;
+        country?: string;
+      }
+    >
+  >(new globalThis.Map());
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -84,9 +89,10 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
 
     // Dark mode tile layer using CartoDB Dark Matter
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
-      maxZoom: 10
+      maxZoom: 10,
     }).addTo(map);
 
     mapRef.current = map;
@@ -108,16 +114,17 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
     const existingMarkers = markersRef.current;
 
     // Get valid nodes with coordinates
-    const validNodes = nodes.filter(node => 
-      node.latitude !== undefined && 
-      node.longitude !== undefined &&
-      !isNaN(node.latitude) && 
-      !isNaN(node.longitude)
+    const validNodes = nodes.filter(
+      (node) =>
+        node.latitude !== undefined &&
+        node.longitude !== undefined &&
+        !isNaN(node.latitude) &&
+        !isNaN(node.longitude)
     );
 
     // Get current node IDs
-    const currentNodeIds = new Set(validNodes.map(node => node.id));
-    
+    const currentNodeIds = new Set(validNodes.map((node) => node.id));
+
     // Remove markers for nodes that no longer exist
     existingMarkers.forEach((marker, nodeId) => {
       if (!currentNodeIds.has(nodeId)) {
@@ -144,7 +151,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         latitude: node.latitude,
         longitude: node.longitude,
         city: node.geo?.city,
-        country: node.geo?.country
+        country: node.geo?.country,
       };
     };
 
@@ -152,7 +159,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
     const createCustomIcon = (node: Node) => {
       const color = node.mining ? '#f59e0b' : '#06b6d4';
       const size = 8;
-      
+
       return L.divIcon({
         className: 'custom-node-marker',
         html: `
@@ -172,13 +179,14 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
 
     // Create popup content function
     const createPopupContent = (nodeInfo: ReturnType<typeof getNodeInfo>) => {
-      const locationText = nodeInfo.city && nodeInfo.country 
-        ? `${nodeInfo.city}, ${nodeInfo.country}`
-        : nodeInfo.country 
-        ? nodeInfo.country
-        : nodeInfo.city 
-        ? nodeInfo.city
-        : 'Unknown Location';
+      const locationText =
+        nodeInfo.city && nodeInfo.country
+          ? `${nodeInfo.city}, ${nodeInfo.country}`
+          : nodeInfo.country
+            ? nodeInfo.country
+            : nodeInfo.city
+              ? nodeInfo.city
+              : 'Unknown Location';
 
       return `
         <div style="background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 8px; min-width: 150px; max-width: 200px; font-family: system-ui, -apple-system, sans-serif; border: 1px solid #374151; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);">
@@ -188,22 +196,26 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
           <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px; text-align: center;">
             📍 ${locationText}
           </div>
-          ${nodeInfo.block ? `
+          ${
+            nodeInfo.block
+              ? `
           <div style="font-size: 12px; color: #9ca3af; text-align: center;">
             Block #${nodeInfo.block.toLocaleString()}
           </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
       `;
     };
 
     // Update or create markers for each valid node
-    validNodes.forEach(node => {
+    validNodes.forEach((node) => {
       if (!node.latitude || !node.longitude) return;
 
       const nodeInfo = getNodeInfo(node);
       const existingMarker = existingMarkers.get(node.id);
-      
+
       // Track current node state
       const currentState: {
         mining: boolean;
@@ -216,11 +228,12 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         block: nodeInfo.block || 0,
         hash: nodeInfo.blockHash || '',
         ...(nodeInfo.city && { city: nodeInfo.city }),
-        ...(nodeInfo.country && { country: nodeInfo.country })
+        ...(nodeInfo.country && { country: nodeInfo.country }),
       };
-      
+
       const previousState = nodeStatesRef.current.get(node.id);
-      const stateChanged = !previousState || 
+      const stateChanged =
+        !previousState ||
         previousState.mining !== currentState.mining ||
         previousState.block !== currentState.block ||
         previousState.hash !== currentState.hash ||
@@ -243,7 +256,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
       } else {
         // Create new marker
         const marker = L.marker([node.latitude, node.longitude], {
-          icon: createCustomIcon(node)
+          icon: createCustomIcon(node),
         }).addTo(map);
 
         // Set popup content
@@ -253,11 +266,11 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
           autoPan: false,
           maxWidth: 200,
           minWidth: 150,
-          offset: [0, -10]
+          offset: [0, -10],
         });
 
         // Add click event
-        marker.on('click', function(this: L.Marker) {
+        marker.on('click', function (this: L.Marker) {
           this.openPopup();
         });
 
@@ -271,30 +284,29 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
     // const isInitialLoad = validNodes.length > 0 && existingMarkers.size <= validNodes.length;
     // if (isInitialLoad && validNodes.length === existingMarkers.size) {
     //   const group = new L.FeatureGroup(
-    //     validNodes.map(node => 
+    //     validNodes.map(node =>
     //       L.marker([node.latitude!, node.longitude!])
     //     )
     //   );
     //   map.fitBounds(group.getBounds().pad(0.1), { animate: false });
     // }
-
   }, [nodes]);
 
   return (
     <div className="w-full h-full relative">
-      <div 
-        ref={mapContainerRef} 
+      <div
+        ref={mapContainerRef}
         className="w-full h-full bg-gray-900 rounded-lg"
         style={{ minHeight: '400px' }}
       />
-      
+
       {/* Node count overlay */}
       <div className="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[1000]">
         <div className="text-sm text-gray-300">
           <span className="text-cyan-400">{nodes.length}</span> nodes connected
         </div>
         <div className="text-xs text-gray-400 mt-1">
-          {nodes.filter(n => n.latitude && n.longitude).length} geolocated
+          {nodes.filter((n) => n.latitude && n.longitude).length} geolocated
         </div>
       </div>
 
@@ -322,7 +334,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
           max-width: 200px !important;
           min-width: 150px !important;
         }
-        
+
         .simple-popup .leaflet-popup-content {
           margin: 0 !important;
           padding: 0 !important;
@@ -330,12 +342,12 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
           background: #1f2937 !important;
           border-radius: 8px !important;
         }
-        
+
         .simple-popup .leaflet-popup-tip {
           background: #1f2937 !important;
           border: 1px solid #374151 !important;
         }
-        
+
         .custom-node-marker {
           background: transparent !important;
           border: none !important;
@@ -346,4 +358,3 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
 };
 
 export default Map;
-

@@ -1,76 +1,73 @@
-'use client'
+'use client';
 
-import React, { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
-import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
+import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 interface WorldMapProps {
   nodes?: Array<{
-    id: string
-    name: string
-    lat: number
-    lng: number
-    active: boolean
-  }>
-  className?: string
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    active: boolean;
+  }>;
+  className?: string;
 }
 
 // Dynamically import react-leaflet components to avoid SSR issues
-const MapContainer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
-)
+const MapContainer = dynamic(() => import('react-leaflet').then((mod) => mod.MapContainer), {
+  ssr: false,
+});
 
-const TileLayer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.TileLayer),
-  { ssr: false }
-)
+const TileLayer = dynamic(() => import('react-leaflet').then((mod) => mod.TileLayer), {
+  ssr: false,
+});
 
-const Marker = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Marker),
-  { ssr: false }
-)
+const Marker = dynamic(() => import('react-leaflet').then((mod) => mod.Marker), { ssr: false });
 
-const Popup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Popup),
-  { ssr: false }
-)
+const Popup = dynamic(() => import('react-leaflet').then((mod) => mod.Popup), { ssr: false });
 
-const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = "" }) => {
-  const [isClient, setIsClient] = useState(false)
+const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = '' }) => {
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true)
-    
+    setIsClient(true);
+
     // Fix for default markers in react-leaflet
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (L.Icon.Default.prototype as any)._getIconUrl
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+      iconRetinaUrl:
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
       iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
       shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    })
-  }, [])
+    });
+  }, []);
 
   // Create custom icons for active and inactive nodes
   const activeIcon = new L.Icon({
-    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyLjUgMEM1LjU5NiAwIDAgNS41OTYgMCAxMi41QzAgMTkuNDA0IDUuNTk2IDI1IDEyLjUgMjVDMTkuNDA0IDI1IDI1IDE5LjQwNCAyNSAxMi41QzI1IDUuNTk2IDE5LjQwNCAwIDEyLjUgMFoiIGZpbGw9IiMxMGI5ODEiLz4KPHBhdGggZD0iTTEyLjUgMzVMMjAgMjVIMTVDMTUgMjIuMjM4NiAxMi43NjE0IDIwIDEwIDIwQzcuMjM4NTggMjAgNSAyMi4yMzg2IDUgMjVIMFYzNUwxMi41IDM1WiIgZmlsbD0iIzEwYjk4MSIvPgo8L3N2Zz4K',
+    iconUrl:
+      'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyLjUgMEM1LjU5NiAwIDAgNS41OTYgMCAxMi41QzAgMTkuNDA0IDUuNTk2IDI1IDEyLjUgMjVDMTkuNDA0IDI1IDI1IDE5LjQwNCAyNSAxMi41QzI1IDUuNTk2IDE5LjQwNCAwIDEyLjUgMFoiIGZpbGw9IiMxMGI5ODEiLz4KPHBhdGggZD0iTTEyLjUgMzVMMjAgMjVIMTVDMTUgMjIuMjM4NiAxMi43NjE0IDIwIDEwIDIwQzcuMjM4NTggMjAgNSAyMi4yMzg2IDUgMjVIMFYzNUwxMi41IDM1WiIgZmlsbD0iIzEwYjk4MSIvPgo8L3N2Zz4K',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
-  })
+  });
 
   const inactiveIcon = new L.Icon({
-    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyLjUgMEM1LjU5NiAwIDAgNS41OTYgMCAxMi41QzAgMTkuNDA0IDUuNTk2IDI1IDEyLjUgMjVDMTkuNDA0IDI1IDI1IDE5LjQwNCAyNSAxMi41QzI1IDUuNTk2IDE5LjQwNCAwIDEyLjUgMFoiIGZpbGw9IiM2YjcyODAiLz4KPHBhdGggZD0iTTEyLjUgMzVMMjAgMjVIMTVDMTUgMjIuMjM4NiAxMi43NjE0IDIwIDEwIDIwQzcuMjM4NTggMjAgNSAyMi4yMzg2IDUgMjVIMFYzNUwxMi41IDM1WiIgZmlsbD0iIzZiNzI4MCIvPgo8L3N2Zz4K',
+    iconUrl:
+      'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjUiIGhlaWdodD0iNDEiIHZpZXdCb3g9IjAgMCAyNSA0MSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyLjUgMEM1LjU5NiAwIDAgNS41OTYgMCAxMi41QzAgMTkuNDA0IDUuNTk2IDI1IDEyLjUgMjVDMTkuNDA0IDI1IDI1IDE5LjQwNCAyNSAxMi41QzI1IDUuNTk2IDE5LjQwNCAwIDEyLjUgMFoiIGZpbGw9IiM2YjcyODAiLz4KPHBhdGggZD0iTTEyLjUgMzVMMjAgMjVIMTVDMTUgMjIuMjM4NiAxMi43NjE0IDIwIDEwIDIwQzcuMjM4NTggMjAgNSAyMi4yMzg2IDUgMjVIMFYzNUwxMi41IDM1WiIgZmlsbD0iIzZiNzI4MCIvPgo8L3N2Zz4K',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
-  })
+  });
 
   if (!isClient) {
     return (
-      <div className={`world-map-container bg-[#0d1421] rounded-lg border border-[#1e3a5f] p-4 ${className}`}>
+      <div
+        className={`world-map-container bg-[#0d1421] rounded-lg border border-[#1e3a5f] p-4 ${className}`}
+      >
         <div className="flex items-center mb-6">
           <span className="text-xl font-semibold text-gray-100">World Map</span>
         </div>
@@ -78,11 +75,13 @@ const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = "" }) => {
           <span className="text-gray-400">Loading map...</span>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={`world-map-container bg-[#0d1421] rounded-lg border border-[#1e3a5f] p-4 ${className}`}>
+    <div
+      className={`world-map-container bg-[#0d1421] rounded-lg border border-[#1e3a5f] p-4 ${className}`}
+    >
       <div className="relative">
         <MapContainer
           center={[35.0, 0.0]} // South of London coordinates
@@ -107,11 +106,10 @@ const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = "" }) => {
                 <div className="text-sm">
                   <div className="font-semibold text-gray-800">{node.name}</div>
                   <div className="text-gray-600">ID: {node.id}</div>
+                  <div className="text-gray-600">Status: {node.active ? 'Active' : 'Inactive'}</div>
                   <div className="text-gray-600">
-                    Status: {node.active ? 'Active' : 'Inactive'}
-                  </div>
-                  <div className="text-gray-600">
-                    Location: {node.lat.toFixed(4)}, {node.lng.toFixed(4)}
+                    Location: {typeof node.lat === 'number' ? node.lat.toFixed(4) : node.lat},{' '}
+                    {typeof node.lng === 'number' ? node.lng.toFixed(4) : node.lng}
                   </div>
                 </div>
               </Popup>
@@ -135,7 +133,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ nodes = [], className = "" }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default WorldMap 
+export default WorldMap;

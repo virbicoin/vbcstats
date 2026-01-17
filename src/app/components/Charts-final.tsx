@@ -1,6 +1,17 @@
-"use client";
+'use client';
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar, AreaChart, Area } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+} from 'recharts';
 
 interface ChartData {
   time: string;
@@ -33,21 +44,21 @@ const Charts: React.FC<ChartsProps> = () => {
         const data: ChartData[] = [];
         const timeLabels: string[] = [];
         const now = new Date();
-        
+
         // Start from current minute rounded down
         const currentMinute = new Date(now);
         currentMinute.setSeconds(0, 0);
-        
+
         for (let i = 19; i >= 0; i--) {
           const time = new Date(currentMinute.getTime() - i * 300000); // 5 minute intervals
-          const timeString = time.toLocaleTimeString(undefined, { 
-            hour: '2-digit', 
+          const timeString = time.toLocaleTimeString(undefined, {
+            hour: '2-digit',
             minute: '2-digit',
-            hour12: false 
+            hour12: false,
           });
-          
+
           timeLabels.push(timeString);
-          
+
           data.push({
             time: timeString,
             index: 19 - i,
@@ -56,10 +67,10 @@ const Charts: React.FC<ChartsProps> = () => {
             uncles: Math.floor(Math.random() * 3),
             transactions: Math.floor(Math.random() * 50) + 15,
             gasSpending: Math.random() * 70 + 25,
-            propagation: Math.random() * 40 + 85
+            propagation: Math.random() * 40 + 85,
           });
         }
-        
+
         setStaticTimeLabels(timeLabels);
         return data;
       };
@@ -71,18 +82,20 @@ const Charts: React.FC<ChartsProps> = () => {
 
   // Completely static X-axis configuration without any dynamic elements
   const xAxisConfig = {
-    dataKey: "index",
+    dataKey: 'index',
     hide: true, // Hide X-axis completely to prevent any flickering
-    type: "number" as const,
-    domain: [0, 19]
+    type: 'number' as const,
+    domain: [0, 19],
   };
 
   // Static time labels component
   const TimeLabels = React.memo(() => (
     <div className="flex justify-between text-xs text-gray-400 mt-2 px-2">
-      {staticTimeLabels.filter((_, index) => [0, 4, 8, 12, 16, 19].includes(index)).map((label, idx) => (
-        <span key={idx}>{label}</span>
-      ))}
+      {staticTimeLabels
+        .filter((_, index) => [0, 4, 8, 12, 16, 19].includes(index))
+        .map((label, idx) => (
+          <span key={idx}>{label}</span>
+        ))}
     </div>
   ));
   TimeLabels.displayName = 'TimeLabels';
@@ -94,14 +107,11 @@ const Charts: React.FC<ChartsProps> = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Block Time</h3>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={chartData} 
-              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-            >
+            <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis {...xAxisConfig} />
-              <YAxis 
-                stroke="#9ca3af" 
+              <YAxis
+                stroke="#9ca3af"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -109,10 +119,10 @@ const Charts: React.FC<ChartsProps> = () => {
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Line 
-                type="monotone" 
-                dataKey="blockTime" 
-                stroke="#f59e0b" 
+              <Line
+                type="monotone"
+                dataKey="blockTime"
+                stroke="#f59e0b"
                 strokeWidth={2}
                 dot={false}
                 activeDot={false}
@@ -131,14 +141,11 @@ const Charts: React.FC<ChartsProps> = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Difficulty</h3>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart 
-              data={chartData} 
-              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-            >
+            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis {...xAxisConfig} />
-              <YAxis 
-                stroke="#9ca3af" 
+              <YAxis
+                stroke="#9ca3af"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -146,10 +153,10 @@ const Charts: React.FC<ChartsProps> = () => {
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="difficulty" 
-                stroke="#ef4444" 
+              <Area
+                type="monotone"
+                dataKey="difficulty"
+                stroke="#ef4444"
                 fill="#ef4444"
                 fillOpacity={0.3}
                 strokeWidth={2}
@@ -168,14 +175,11 @@ const Charts: React.FC<ChartsProps> = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Uncle Count</h3>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={chartData} 
-              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-            >
+            <BarChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis {...xAxisConfig} />
-              <YAxis 
-                stroke="#9ca3af" 
+              <YAxis
+                stroke="#9ca3af"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -183,8 +187,8 @@ const Charts: React.FC<ChartsProps> = () => {
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Bar 
-                dataKey="uncles" 
+              <Bar
+                dataKey="uncles"
                 fill="#a855f7"
                 radius={[2, 2, 0, 0]}
                 animationDuration={0}
@@ -201,14 +205,11 @@ const Charts: React.FC<ChartsProps> = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Block Propagation</h3>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={chartData} 
-              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-            >
+            <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis {...xAxisConfig} />
-              <YAxis 
-                stroke="#9ca3af" 
+              <YAxis
+                stroke="#9ca3af"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -216,10 +217,10 @@ const Charts: React.FC<ChartsProps> = () => {
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Line 
-                type="monotone" 
-                dataKey="propagation" 
-                stroke="#06b6d4" 
+              <Line
+                type="monotone"
+                dataKey="propagation"
+                stroke="#06b6d4"
                 strokeWidth={2}
                 dot={false}
                 activeDot={false}
@@ -238,14 +239,11 @@ const Charts: React.FC<ChartsProps> = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Transactions</h3>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={chartData} 
-              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-            >
+            <BarChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis {...xAxisConfig} />
-              <YAxis 
-                stroke="#9ca3af" 
+              <YAxis
+                stroke="#9ca3af"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -253,8 +251,8 @@ const Charts: React.FC<ChartsProps> = () => {
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Bar 
-                dataKey="transactions" 
+              <Bar
+                dataKey="transactions"
                 fill="#10b981"
                 radius={[2, 2, 0, 0]}
                 animationDuration={0}
@@ -271,14 +269,11 @@ const Charts: React.FC<ChartsProps> = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Gas Spending</h3>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart 
-              data={chartData}
-              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-            >
+            <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis {...xAxisConfig} />
-              <YAxis 
-                stroke="#9ca3af" 
+              <YAxis
+                stroke="#9ca3af"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -286,10 +281,10 @@ const Charts: React.FC<ChartsProps> = () => {
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="gasSpending" 
-                stroke="#f43f5e" 
+              <Area
+                type="monotone"
+                dataKey="gasSpending"
+                stroke="#f43f5e"
                 fill="#f43f5e"
                 fillOpacity={0.3}
                 strokeWidth={2}
@@ -308,14 +303,14 @@ const Charts: React.FC<ChartsProps> = () => {
         <h3 className="text-lg font-semibold text-white mb-4">Gas Limit</h3>
         <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={chartData.map(item => ({ ...item, gasLimit: 8000000 }))} 
+            <LineChart
+              data={chartData.map((item) => ({ ...item, gasLimit: 8000000 }))}
               margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis {...xAxisConfig} />
-              <YAxis 
-                stroke="#9ca3af" 
+              <YAxis
+                stroke="#9ca3af"
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
@@ -323,10 +318,10 @@ const Charts: React.FC<ChartsProps> = () => {
                 allowDataOverflow={false}
                 tick={{ fontSize: 10 }}
               />
-              <Line 
-                type="monotone" 
-                dataKey="gasLimit" 
-                stroke="#8b5cf6" 
+              <Line
+                type="monotone"
+                dataKey="gasLimit"
+                stroke="#8b5cf6"
                 strokeWidth={2}
                 dot={false}
                 activeDot={false}

@@ -14,13 +14,15 @@ export async function GET(request: NextRequest) {
 
   try {
     // Validate IP address format
-    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const ipRegex =
+      /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     if (!ipRegex.test(ip)) {
       return NextResponse.json({ error: 'Invalid IP address format' }, { status: 400 });
     }
 
     // Skip private IP addresses
-    const privateIpRegex = /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|0\.0\.0\.0|255\.255\.255\.255)/;
+    const privateIpRegex =
+      /^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|127\.|0\.0\.0\.0|255\.255\.255\.255)/;
     if (privateIpRegex.test(ip)) {
       return NextResponse.json({ error: 'Private IP address not supported' }, { status: 400 });
     }
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
       console.error('GeoIP module load error:', geoError);
       return NextResponse.json({ error: 'GeoIP service unavailable' }, { status: 503 });
     }
-    
+
     if (geo && geo.ll && geo.ll.length === 2) {
       const [latitude, longitude] = geo.ll;
       return NextResponse.json({
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
         country: geo.country,
         region: geo.region,
         city: geo.city,
-        timezone: geo.timezone
+        timezone: geo.timezone,
       });
     } else {
       return NextResponse.json({ error: 'Location not found for this IP' }, { status: 404 });

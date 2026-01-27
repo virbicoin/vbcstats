@@ -386,6 +386,19 @@ setInterval(() => {
     return;
   }
   
+  // Update latency from API sparks (primus-spark-latency provides automatic latency measurement)
+  apiPrimus.forEach((apiSpark) => {
+    if (apiSpark && apiSpark.auth && apiSpark.nodeId && apiSpark.latency) {
+      const node = Nodes.getNode({ id: apiSpark.nodeId });
+      if (node && node.stats) {
+        // Only update if spark has a valid latency
+        if (typeof apiSpark.latency === 'number' && apiSpark.latency > 0) {
+          node.stats.latency = apiSpark.latency;
+        }
+      }
+    }
+  });
+  
   const avgBlockTime = calculateAvgBlockTime(allNodes);
   
   clientPrimus.forEach((spark) => {
@@ -1234,6 +1247,19 @@ setInterval(() => {
 // Cleanup interval
 setInterval(() => {
   const allNodes = Nodes.all();
+  const now = Date.now();
+  
+  // Check and reset stale pending values (older than 30 seconds)
+  allNodes.forEach(node => {
+    if (node.stats && node.stats.pending > 0) {
+      const pendingAge = now - (node.stats.pendingUpdatedAt || 0);
+      if (pendingAge > 30000) {
+        console.log(`Resetting stale pending for ${node.id}: ${node.stats.pending} -> 0 (age: ${pendingAge}ms)`);
+        node.stats.pending = 0;
+      }
+    }
+  });
+  
   const nodesData = allNodes.map(node => ({
     id: node.id,
     name: node.info?.name || node.id,

@@ -1,5 +1,6 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -48,6 +49,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<globalThis.Map<string | number, L.Marker>>(new globalThis.Map());
+  const [hoveredNode, setHoveredNode] = useState<{ node: Node; x: number; y: number } | null>(null);
 
   // Track node states to prevent unnecessary marker updates
   const nodeStatesRef = useRef<
@@ -71,7 +73,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
 
     // Initialize map
     const map = L.map(mapContainerRef.current, {
-      center: [1.5, 0], // London (51.5°N) minus 50° = 1.5°N
+      center: [-40, 0], // Centered to show both hemispheres including Australia
       zoom: 1,
       zoomControl: false,
       attributionControl: false,
@@ -250,7 +252,6 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         // Only update marker icon and popup if state actually changed
         if (stateChanged) {
           existingMarker.setIcon(createCustomIcon(node));
-          existingMarker.setPopupContent(createPopupContent(nodeInfo));
           nodeStatesRef.current.set(node.id, currentState);
         }
       } else {
@@ -259,19 +260,20 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
           icon: createCustomIcon(node),
         }).addTo(map);
 
-        // Set popup content
-        marker.bindPopup(createPopupContent(nodeInfo), {
-          className: 'simple-popup',
-          closeButton: false,
-          autoPan: false,
-          maxWidth: 200,
-          minWidth: 150,
-          offset: [0, -10],
+        // Add hover events to show custom React tooltip
+        marker.on('mouseover', function (e: L.LeafletMouseEvent) {
+          const containerPoint = map.latLngToContainerPoint(e.latlng);
+          const mapRect = mapContainerRef.current?.getBoundingClientRect();
+          if (mapRect) {
+            setHoveredNode({
+              node,
+              x: mapRect.left + containerPoint.x,
+              y: mapRect.top + containerPoint.y,
+            });
+          }
         });
-
-        // Add click event
-        marker.on('click', function (this: L.Marker) {
-          this.openPopup();
+        marker.on('mouseout', function () {
+          setHoveredNode(null);
         });
 
         // Store marker reference and state
@@ -292,6 +294,17 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
     // }
   }, [nodes]);
 
+  // Helper to get location text
+  const getLocationText = (node: Node) => {
+    if (node.geo?.city && node.geo?.country) {
+      return `${node.geo.city}, ${node.geo.country}`;
+    }
+    if (node.geo?.country) {
+      return node.geo.country;
+    }
+    return 'Unknown';
+  };
+
   return (
     <div className="w-full h-full relative">
       <div
@@ -301,7 +314,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
       />
 
       {/* Node count overlay */}
-      <div className="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[1000]">
+      <div className="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[500]">
         <div className="text-sm text-gray-300">
           <span className="text-cyan-400">{nodes.length}</span> nodes connected
         </div>
@@ -311,7 +324,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
       </div>
 
       {/* Legend */}
-      <div className="absolute top-4 right-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[1000]">
+      <div className="absolute top-4 right-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[500]">
         <div className="text-xs text-gray-300 space-y-1">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-yellow-500 border border-gray-700"></div>
@@ -324,30 +337,31 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         </div>
       </div>
 
+      {/* Custom tooltip rendered via portal */}
+      {hoveredNode && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed z-[99999] bg-gray-900 border border-gray-600 rounded-lg p-3 shadow-2xl pointer-events-none"
+          style={{
+            left: hoveredNode.x,
+            top: hoveredNode.y - 10,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="text-xs text-gray-300 whitespace-nowrap">
+            <div className="flex items-center gap-1 text-pink-400">
+              📍 {getLocationText(hoveredNode.node)}
+            </div>
+            {hoveredNode.node.block && (
+              <div className="text-cyan-400">
+                Block #{hoveredNode.node.block.toLocaleString()}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+
       <style jsx global>{`
-        .simple-popup .leaflet-popup-content-wrapper {
-          background: #1f2937 !important;
-          border: 1px solid #374151 !important;
-          border-radius: 8px !important;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
-          padding: 0 !important;
-          max-width: 200px !important;
-          min-width: 150px !important;
-        }
-
-        .simple-popup .leaflet-popup-content {
-          margin: 0 !important;
-          padding: 0 !important;
-          width: 100% !important;
-          background: #1f2937 !important;
-          border-radius: 8px !important;
-        }
-
-        .simple-popup .leaflet-popup-tip {
-          background: #1f2937 !important;
-          border: 1px solid #374151 !important;
-        }
-
         .custom-node-marker {
           background: transparent !important;
           border: none !important;

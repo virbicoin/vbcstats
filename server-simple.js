@@ -64,6 +64,31 @@ function setGeo(node, ip) {
   if (!node.info) node.info = {};
   node.info.ip = cleanIp;
   
+  // Check for localhost and private IPs - set to Tokyo as default
+  const isLocalhost = cleanIp === '127.0.0.1' || cleanIp === 'localhost' || cleanIp === '::1';
+  const isPrivateIP = cleanIp.startsWith('10.') || 
+                      cleanIp.startsWith('192.168.') || 
+                      cleanIp.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) ||
+                      cleanIp === '0.0.0.0';
+  
+  if (isLocalhost || isPrivateIP) {
+    console.log('Detected localhost/private IP:', cleanIp, '- Setting to Tokyo');
+    node.geo = {
+      range: [0, 0],
+      country: 'JP',
+      region: '13',
+      eu: '0',
+      timezone: 'Asia/Tokyo',
+      city: 'Tokyo',
+      ll: [35.6895, 139.6917],
+      metro: 0,
+      area: 50
+    };
+    node.latitude = 35.6895;  // Tokyo latitude
+    node.longitude = 139.6917; // Tokyo longitude
+    return node;
+  }
+  
   // Get geo information using geoip-lite
   const geo = geoip.lookup(cleanIp);
   node.geo = geo;
@@ -72,6 +97,22 @@ function setGeo(node, ip) {
   if (geo && geo.ll && geo.ll.length === 2) {
     node.latitude = geo.ll[0];  // latitude
     node.longitude = geo.ll[1]; // longitude
+  } else {
+    // If geo lookup failed, default to Tokyo
+    console.log('Geo lookup failed for IP:', cleanIp, '- Setting to Tokyo');
+    node.geo = {
+      range: [0, 0],
+      country: 'JP',
+      region: '13',
+      eu: '0',
+      timezone: 'Asia/Tokyo',
+      city: 'Tokyo',
+      ll: [35.6895, 139.6917],
+      metro: 0,
+      area: 50
+    };
+    node.latitude = 35.6895;
+    node.longitude = 139.6917;
   }
   
   return node;
@@ -916,6 +957,24 @@ apiPrimus.on('connection', (spark) => {
     spark.emit('node-pong', { serverTime: Date.now() });
   });
 
+  // Handle pong responses from API nodes (for server-initiated ping)
+  spark.on('node-pong', (data) => {
+    if (!spark.auth) return;
+    if (spark.pingStartTime && spark.nodeId) {
+      const latency = Math.ceil((Date.now() - spark.pingStartTime) / 2);
+      
+      // Update node latency in collection
+      const node = Nodes.getNode({ id: spark.nodeId });
+      if (node && node.stats) {
+        node.stats.latency = latency;
+        console.log(`Updated latency for node ${spark.nodeId}: ${latency}ms`);
+      }
+      
+      // Also update spark.latency for consistency
+      spark.latency = latency;
+    }
+  });
+
   spark.on('latency', (data) => {
     if (!spark.auth) return;
     Nodes.updateLatency(spark.nodeId, data, (err, info) => {
@@ -1266,6 +1325,28 @@ setInterval(() => {
     console.log('No clients connected for independent ping system');
   }
 }, 10000); // Send ping every 10 seconds
+
+// Ping API nodes periodically to keep latency updated
+setInterval(() => {
+  console.log('\n=== API Node Ping System ===');
+  
+  apiPrimus.forEach((spark) => {
+    if (spark && spark.auth && spark.nodeId && !spark.destroyed) {
+      const pingStartTime = Date.now();
+      
+      // Store ping time on spark for later calculation
+      spark.pingStartTime = pingStartTime;
+      
+      try {
+        // Send ping to API node
+        spark.emit('node-ping', { serverTime: pingStartTime });
+        console.log(`Sent ping to API node ${spark.nodeId}`);
+      } catch (error) {
+        console.error(`Error pinging API node ${spark.nodeId}:`, error);
+      }
+    }
+  });
+}, 5000); // Ping API nodes every 5 seconds
 
 server.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);

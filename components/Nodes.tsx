@@ -98,6 +98,7 @@ type SortDirection = 'asc' | 'desc';
 
 const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   const [pinnedNodes, setPinnedNodes] = useState<Set<string | number>>(new Set());
+  const [hoveredNode, setHoveredNode] = useState<{ node: Node; x: number; y: number } | null>(null);
 
   // Initialize sort state from localStorage or default values
   const [sortField, setSortField] = useState<SortField | null>(() => {
@@ -623,12 +624,13 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   const getPropagationClass = (node: Node) => {
     const propagation = Number(node.stats?.block?.propagation || node.propagation || 0);
 
-    // Check if node is active - be more lenient for VirBiCoin nodes
-    const isActive = node.stats?.active ?? (node.id.toString().includes('Gvbc') ? true : false);
+    // Check if node is active - consider node active if it has peers or propagation data
+    const peers = node.stats?.peers ?? node.peers ?? 0;
+    const isActive = node.stats?.active ?? (peers > 0) ?? node.id.toString().includes('Gvbc');
 
-    if (!isActive) return 'propagation-inactive';
+    if (!isActive && propagation === 0) return 'propagation-inactive';
 
-    if (propagation === 0) return 'propagation-zero'; // Blue for 0ms (like original text-info)
+    if (propagation === 0) return 'propagation-zero'; // Green for 0ms (first to receive)
     if (propagation < 1000) return 'propagation-fast'; // Green for < 1s
     if (propagation < 3000) return 'propagation-medium'; // Yellow for < 3s
     if (propagation < 7000) return 'propagation-slow'; // Orange for < 7s
@@ -639,12 +641,13 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   const getAvgPropagationClass = (node: Node) => {
     const avgPropagation = Number(node.stats?.propagationAvg || node.propagationAvg || 0);
 
-    // Check if node is active - be more lenient for VirBiCoin nodes
-    const isActive = node.stats?.active ?? (node.id.toString().includes('Gvbc') ? true : false);
+    // Check if node is active - consider node active if it has peers or propagation data
+    const peers = node.stats?.peers ?? node.peers ?? 0;
+    const isActive = node.stats?.active ?? (peers > 0) ?? node.id.toString().includes('Gvbc');
 
-    if (!isActive) return 'propagation-inactive';
+    if (!isActive && avgPropagation === 0) return 'propagation-inactive';
 
-    if (avgPropagation === 0) return 'propagation-zero'; // Blue for 0ms (like original text-info)
+    if (avgPropagation === 0) return 'propagation-zero'; // Green for 0ms
     if (avgPropagation < 1000) return 'propagation-fast'; // Green for < 1s
     if (avgPropagation < 3000) return 'propagation-medium'; // Yellow for < 3s
     if (avgPropagation < 7000) return 'propagation-slow'; // Orange for < 7s
@@ -888,7 +891,16 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
                     </button>
                   </td>
                   <td className="p-2">
-                    <div className="font-medium">{node.info?.name || node.name}</div>
+                    <div
+                      className="font-medium cursor-pointer hover:text-cyan-400 transition-colors"
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setHoveredNode({ node, x: rect.left, y: rect.top });
+                      }}
+                      onMouseLeave={() => setHoveredNode(null)}
+                    >
+                      {node.info?.name || node.name}
+                    </div>
                   </td>
                   <td className="p-2">
                     <div className="text-xs text-blue-400">
@@ -1034,6 +1046,38 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Fixed position tooltip for node hover */}
+      {hoveredNode && (
+        <div
+          className="fixed z-[99999] bg-gray-900 border border-gray-600 rounded-lg p-3 shadow-2xl min-w-[220px] max-w-[320px] pointer-events-none"
+          style={{
+            left: hoveredNode.x,
+            top: hoveredNode.y - 10,
+            transform: 'translateY(-100%)',
+          }}
+        >
+          <div className="text-sm font-bold text-amber-400 mb-2">
+            {hoveredNode.node.info?.name || hoveredNode.node.name}
+          </div>
+          <div className="text-xs text-gray-300 space-y-1">
+            {hoveredNode.node.geo?.city && hoveredNode.node.geo?.country && (
+              <div>📍 {hoveredNode.node.geo.city}, {hoveredNode.node.geo.country}</div>
+            )}
+            {!hoveredNode.node.geo?.city && hoveredNode.node.geo?.country && (
+              <div>📍 {hoveredNode.node.geo.country}</div>
+            )}
+            {hoveredNode.node.info?.node && (
+              <div>🖥️ {hoveredNode.node.info.node}</div>
+            )}
+            {(hoveredNode.node.stats?.block?.number || hoveredNode.node.block) && (
+              <div>📦 Block #{(hoveredNode.node.stats?.block?.number || hoveredNode.node.block)?.toLocaleString()}</div>
+            )}
+            <div>🔗 {hoveredNode.node.stats?.peers ?? hoveredNode.node.peers ?? 0} peers</div>
+            <div>⏱️ {formatLatency(hoveredNode.node)}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

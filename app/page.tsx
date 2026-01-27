@@ -23,7 +23,7 @@ import dynamic from 'next/dynamic';
 // };
 
 const Charts = dynamic(
-  () => import('./components/Charts').then((mod) => ({ default: mod.default })),
+  () => import('@/components/Charts').then((mod) => ({ default: mod.default })),
   {
     loading: () => (
       <div className="w-full h-full bg-[#0d1421] rounded flex items-center justify-center">
@@ -34,7 +34,7 @@ const Charts = dynamic(
   }
 );
 
-const Nodes = dynamic(() => import('./components/Nodes'), {
+const Nodes = dynamic(() => import('@/components/Nodes'), {
   loading: () => (
     <div className="w-full h-full bg-[#0d1421] rounded flex items-center justify-center">
       <p className="text-gray-400">Loading Nodes...</p>

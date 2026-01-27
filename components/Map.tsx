@@ -179,38 +179,6 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
       });
     };
 
-    // Create popup content function
-    const createPopupContent = (nodeInfo: ReturnType<typeof getNodeInfo>) => {
-      const locationText =
-        nodeInfo.city && nodeInfo.country
-          ? `${nodeInfo.city}, ${nodeInfo.country}`
-          : nodeInfo.country
-            ? nodeInfo.country
-            : nodeInfo.city
-              ? nodeInfo.city
-              : 'Unknown Location';
-
-      return `
-        <div style="background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 8px; min-width: 150px; max-width: 200px; font-family: system-ui, -apple-system, sans-serif; border: 1px solid #374151; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);">
-          <div style="font-size: 14px; font-weight: 700; color: #f59e0b; margin-bottom: 6px; text-align: center;">
-            ${nodeInfo.name}
-          </div>
-          <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px; text-align: center;">
-            📍 ${locationText}
-          </div>
-          ${
-            nodeInfo.block
-              ? `
-          <div style="font-size: 12px; color: #9ca3af; text-align: center;">
-            Block #${nodeInfo.block.toLocaleString()}
-          </div>
-          `
-              : ''
-          }
-        </div>
-      `;
-    };
-
     // Update or create markers for each valid node
     validNodes.forEach((node) => {
       if (!node.latitude || !node.longitude) return;
@@ -338,28 +306,30 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
       </div>
 
       {/* Custom tooltip rendered via portal */}
-      {hoveredNode && typeof document !== 'undefined' && createPortal(
-        <div
-          className="fixed z-[99999] bg-gray-900 border border-gray-600 rounded-lg p-3 shadow-2xl pointer-events-none"
-          style={{
-            left: hoveredNode.x,
-            top: hoveredNode.y - 10,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <div className="text-xs text-gray-300 whitespace-nowrap">
-            <div className="flex items-center gap-1 text-pink-400">
-              📍 {getLocationText(hoveredNode.node)}
-            </div>
-            {hoveredNode.node.block && (
-              <div className="text-cyan-400">
-                Block #{hoveredNode.node.block.toLocaleString()}
+      {hoveredNode &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed z-[99999] bg-gray-900 border border-gray-600 rounded-lg p-3 shadow-2xl pointer-events-none"
+            style={{
+              left: hoveredNode.x,
+              top: hoveredNode.y - 10,
+              transform: 'translate(-50%, -100%)',
+            }}
+          >
+            <div className="text-xs text-gray-300 whitespace-nowrap">
+              <div className="flex items-center gap-1 text-pink-400">
+                📍 {getLocationText(hoveredNode.node)}
               </div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+              {hoveredNode.node.block && (
+                <div className="text-cyan-400">
+                  Block #{hoveredNode.node.block.toLocaleString()}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
 
       <style jsx global>{`
         .custom-node-marker {

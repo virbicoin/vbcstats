@@ -92,25 +92,28 @@ npm run dev
 ## Project Structure
 
 ```
-src/
-├── app/                    # Next.js App Router
-│   ├── layout.tsx          # Root layout
-│   ├── page.tsx            # Main dashboard page
-│   ├── providers.tsx       # React context providers
-│   ├── Map.tsx             # Leaflet map component
-│   ├── components/         # Page-specific components
-│   │   ├── Charts.tsx      # Chart grid
-│   │   └── Nodes.tsx       # Node table
+├── app/                      # Next.js App Router
+│   ├── layout.tsx            # Root layout
+│   ├── page.tsx              # Main dashboard page
+│   ├── providers.tsx         # React context providers
 │   └── api/
-│       └── geoip/route.ts  # GeoIP API endpoint
-├── components/             # Shared components
-│   ├── ChartCard.tsx       # D3.js chart card
-│   ├── StatCard.tsx        # Statistics card
-│   ├── WorldMap.tsx        # World map component
-│   └── MinerBlocks.tsx     # Miner blocks display
-└── types/                  # TypeScript types
-    ├── stats.ts            # Statistics types
-    └── icons.ts            # Icon types
+│       └── geoip/route.ts    # GeoIP API endpoint
+├── components/               # UI components
+│   ├── Charts.tsx            # Chart grid
+│   ├── Nodes.tsx             # Node table
+│   ├── Map.tsx               # Leaflet map component
+│   ├── ChartCard.tsx         # D3.js chart card
+│   ├── StatCard.tsx          # Statistics card
+│   ├── WorldMap.tsx          # World map component
+│   └── MinerBlocks.tsx       # Miner blocks display
+├── types/                    # TypeScript types
+│   ├── stats.ts              # Statistics types
+│   └── icons.ts              # Icon types
+├── lib/                      # Server-side libraries (CommonJS)
+│   ├── express.js            # Express app setup
+│   ├── collection.js         # Node collection management
+│   └── history.js            # Block history management
+└── server-simple.js          # WebSocket server (Primus)
 ```
 
 ## Dashboard Features

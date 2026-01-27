@@ -20,33 +20,28 @@
 
 ```
 vbcstats/
-├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── page.tsx            # メインダッシュボードページ
-│   │   ├── layout.tsx          # ルートレイアウト
-│   │   ├── providers.tsx       # React コンテキストプロバイダー
-│   │   ├── Map.tsx             # Leafletマップコンポーネント
-│   │   ├── components/         # ページ固有コンポーネント
-│   │   │   ├── Charts.tsx      # チャートグリッド
-│   │   │   └── Nodes.tsx       # ノードテーブル
-│   │   └── api/
-│   │       └── geoip/route.ts  # GeoIP APIエンドポイント
-│   ├── components/             # 共有コンポーネント
-│   │   ├── ChartCard.tsx       # D3.jsチャートカード
-│   │   ├── StatCard.tsx        # 統計表示カード
-│   │   ├── WorldMap.tsx        # ワールドマップ
-│   │   └── MinerBlocks.tsx     # マイナーブロック表示
-│   └── types/                  # TypeScript型定義
-│       ├── stats.ts            # 統計関連の型
-│       └── icons.ts            # アイコン型
+├── app/                        # Next.js App Router
+│   ├── page.tsx                # メインダッシュボードページ
+│   ├── layout.tsx              # ルートレイアウト
+│   ├── providers.tsx           # React コンテキストプロバイダー
+│   └── api/
+│       └── geoip/route.ts      # GeoIP APIエンドポイント
+├── components/                 # UIコンポーネント
+│   ├── Charts.tsx              # チャートグリッド
+│   ├── Nodes.tsx               # ノードテーブル
+│   ├── Map.tsx                 # Leafletマップコンポーネント
+│   ├── ChartCard.tsx           # D3.jsチャートカード
+│   ├── StatCard.tsx            # 統計表示カード
+│   ├── WorldMap.tsx            # ワールドマップ
+│   └── MinerBlocks.tsx         # マイナーブロック表示
+├── types/                      # TypeScript型定義
+│   ├── stats.ts                # 統計関連の型
+│   └── icons.ts                # アイコン型
 ├── lib/                        # サーバーサイドライブラリ（CommonJS）
 │   ├── express.js              # Expressアプリ設定
 │   ├── collection.js           # ノードコレクション管理
 │   └── history.js              # ブロック履歴管理
-├── server-simple.js            # WebSocketサーバー（Primus）
-├── types/                      # サーバー用型定義
-│   └── server.d.ts
-└── public/                     # 静的ファイル
+└── server-simple.js            # WebSocketサーバー（Primus）
 ```
 
 ## 開発コマンド

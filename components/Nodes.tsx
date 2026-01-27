@@ -626,7 +626,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
 
     // Check if node is active - consider node active if it has peers or propagation data
     const peers = node.stats?.peers ?? node.peers ?? 0;
-    const isActive = node.stats?.active ?? (peers > 0) ?? node.id.toString().includes('Gvbc');
+    const isActive = node.stats?.active ?? (peers > 0 || node.id.toString().includes('Gvbc'));
 
     if (!isActive && propagation === 0) return 'propagation-inactive';
 
@@ -643,7 +643,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
 
     // Check if node is active - consider node active if it has peers or propagation data
     const peers = node.stats?.peers ?? node.peers ?? 0;
-    const isActive = node.stats?.active ?? (peers > 0) ?? node.id.toString().includes('Gvbc');
+    const isActive = node.stats?.active ?? (peers > 0 || node.id.toString().includes('Gvbc'));
 
     if (!isActive && avgPropagation === 0) return 'propagation-inactive';
 
@@ -1062,16 +1062,21 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
           </div>
           <div className="text-xs text-gray-300 space-y-1">
             {hoveredNode.node.geo?.city && hoveredNode.node.geo?.country && (
-              <div>📍 {hoveredNode.node.geo.city}, {hoveredNode.node.geo.country}</div>
+              <div>
+                📍 {hoveredNode.node.geo.city}, {hoveredNode.node.geo.country}
+              </div>
             )}
             {!hoveredNode.node.geo?.city && hoveredNode.node.geo?.country && (
               <div>📍 {hoveredNode.node.geo.country}</div>
             )}
-            {hoveredNode.node.info?.node && (
-              <div>🖥️ {hoveredNode.node.info.node}</div>
-            )}
+            {hoveredNode.node.info?.node && <div>🖥️ {hoveredNode.node.info.node}</div>}
             {(hoveredNode.node.stats?.block?.number || hoveredNode.node.block) && (
-              <div>📦 Block #{(hoveredNode.node.stats?.block?.number || hoveredNode.node.block)?.toLocaleString()}</div>
+              <div>
+                📦 Block #
+                {(
+                  hoveredNode.node.stats?.block?.number || hoveredNode.node.block
+                )?.toLocaleString()}
+              </div>
             )}
             <div>🔗 {hoveredNode.node.stats?.peers ?? hoveredNode.node.peers ?? 0} peers</div>
             <div>⏱️ {formatLatency(hoveredNode.node)}</div>

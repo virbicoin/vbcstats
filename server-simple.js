@@ -386,28 +386,9 @@ setInterval(() => {
     return;
   }
   
-  // Update latency from API sparks
-  // Try multiple sources: spark.latency (primus plugin), spark.measuredLatency (our custom), or preserved value
-  apiPrimus.forEach((apiSpark) => {
-    if (apiSpark && apiSpark.auth && apiSpark.nodeId) {
-      const node = Nodes.getNode({ id: apiSpark.nodeId });
-      if (node && node.stats) {
-        // Priority: our measured latency > primus plugin latency > existing latency
-        let newLatency = null;
-        
-        if (typeof apiSpark.measuredLatency === 'number' && apiSpark.measuredLatency > 0) {
-          newLatency = apiSpark.measuredLatency;
-        } else if (typeof apiSpark.latency === 'number' && apiSpark.latency > 0) {
-          newLatency = apiSpark.latency;
-        }
-        
-        if (newLatency !== null) {
-          node.stats.latency = newLatency;
-        }
-        // If no new latency, keep the existing value (don't reset to 0)
-      }
-    }
-  });
+  // Note: Don't update latency from sparks here - latency is already updated
+  // directly in node.stats when 'latency' event is received.
+  // Just use whatever latency is stored in node.stats.
   
   const avgBlockTime = calculateAvgBlockTime(allNodes);
   

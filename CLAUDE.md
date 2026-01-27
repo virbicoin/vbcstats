@@ -24,6 +24,7 @@ vbcstats/
 │   ├── page.tsx                # メインダッシュボードページ
 │   ├── layout.tsx              # ルートレイアウト
 │   ├── providers.tsx           # React コンテキストプロバイダー
+│   ├── globals.css             # グローバルスタイル
 │   └── api/
 │       └── geoip/route.ts      # GeoIP APIエンドポイント
 ├── components/                 # UIコンポーネント
@@ -33,14 +34,21 @@ vbcstats/
 │   ├── ChartCard.tsx           # D3.jsチャートカード
 │   ├── StatCard.tsx            # 統計表示カード
 │   ├── WorldMap.tsx            # ワールドマップ
-│   └── MinerBlocks.tsx         # マイナーブロック表示
+│   ├── MinerBlocks.tsx         # マイナーブロック表示
+│   ├── header.tsx              # ヘッダーコンポーネント
+│   ├── footer.tsx              # フッターコンポーネント
+│   └── layout.tsx              # 共通レイアウト
 ├── types/                      # TypeScript型定義
 │   ├── stats.ts                # 統計関連の型
-│   └── icons.ts                # アイコン型
+│   ├── icons.ts                # アイコン型
+│   ├── primus-client.d.ts      # Primus型定義
+│   └── server.d.ts             # サーバー型定義
 ├── lib/                        # サーバーサイドライブラリ（CommonJS）
 │   ├── express.js              # Expressアプリ設定
 │   ├── collection.js           # ノードコレクション管理
-│   └── history.js              # ブロック履歴管理
+│   ├── history.js              # ブロック履歴管理
+│   └── utils/
+│       └── config.js           # サーバー設定
 └── server-simple.js            # WebSocketサーバー（Primus）
 ```
 
@@ -83,7 +91,21 @@ NEXT_PUBLIC_WS_URL=wss://example.com  # クライアント用WebSocket URL
 - `/external` - 外部サービス向け
 - `/api` - ノード（マイナー）からのデータ受信
 
-### 2. 数値の型安全性
+### 2. eth-netstats-client (geth) 互換性
+
+geth/gvbcノードからのデータ通信プロトコル：
+
+**Latency計測フロー:**
+1. クライアント → サーバー: `node-ping` with `{id, clientTime}`
+2. サーバー → クライアント: `node-pong` with `{clientTime, serverTime}`
+3. クライアント → サーバー: `latency` with `{id, latency}` (RTT計算結果、文字列)
+
+**Blockデータ:**
+- gethは`difficulty`と`totalDiff`を**文字列**として送信
+- `totalDiff`フィールドを`totalDifficulty`にマッピング
+- 受信時に`parseInt()`で数値に変換
+
+### 3. 数値の型安全性
 
 `toFixed()`などのメソッド呼び出し前に必ず型チェックを行う：
 
@@ -152,6 +174,9 @@ useEffect(() => {
 1. **チャートが表示されない**: `ResponsiveContainer`の親要素に高さが設定されているか確認
 2. **WebSocket接続エラー**: `NEXT_PUBLIC_WS_URL`が正しいか確認
 3. **GeoIPデータなし**: `npm run build`でGeoIPデータがコピーされているか確認
+4. **Latencyが0ms**: サーバーの`node-ping`/`latency`イベントハンドラを確認（gethは文字列でlatencyを送信）
+5. **Total Difficultyが表示されない**: gethは`totalDiff`フィールド名で文字列として送信するため、適切なマッピングと型変換が必要
+6. **マップでブロック番号が"0"**: ブロックデータが未受信のノードは`block !== undefined && block > 0`でフィルタリング
 
 ## 関連リソース
 
@@ -159,3 +184,4 @@ useEffect(() => {
 - [Recharts Documentation](https://recharts.org/)
 - [Primus Documentation](https://github.com/primus/primus)
 - [Leaflet Documentation](https://leafletjs.com/)
+- [eth-netstats-client (geth)](https://github.com/ethereum/go-ethereum/tree/master/cmd/geth)

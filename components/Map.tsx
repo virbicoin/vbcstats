@@ -321,7 +321,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
               <div className="flex items-center gap-1 text-pink-400">
                 📍 {getLocationText(hoveredNode.node)}
               </div>
-              {hoveredNode.node.block && (
+              {hoveredNode.node.block !== undefined && hoveredNode.node.block > 0 && (
                 <div className="text-cyan-400">
                   Block #{hoveredNode.node.block.toLocaleString()}
                 </div>

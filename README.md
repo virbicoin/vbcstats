@@ -96,6 +96,7 @@ npm run dev
 │   ├── layout.tsx            # Root layout
 │   ├── page.tsx              # Main dashboard page
 │   ├── providers.tsx         # React context providers
+│   ├── globals.css           # Global styles
 │   └── api/
 │       └── geoip/route.ts    # GeoIP API endpoint
 ├── components/               # UI components
@@ -105,14 +106,21 @@ npm run dev
 │   ├── ChartCard.tsx         # D3.js chart card
 │   ├── StatCard.tsx          # Statistics card
 │   ├── WorldMap.tsx          # World map component
-│   └── MinerBlocks.tsx       # Miner blocks display
+│   ├── MinerBlocks.tsx       # Miner blocks display
+│   ├── header.tsx            # Header component
+│   ├── footer.tsx            # Footer component
+│   └── layout.tsx            # Common layout
 ├── types/                    # TypeScript types
 │   ├── stats.ts              # Statistics types
-│   └── icons.ts              # Icon types
+│   ├── icons.ts              # Icon types
+│   ├── primus-client.d.ts    # Primus type definitions
+│   └── server.d.ts           # Server type definitions
 ├── lib/                      # Server-side libraries (CommonJS)
 │   ├── express.js            # Express app setup
 │   ├── collection.js         # Node collection management
-│   └── history.js            # Block history management
+│   ├── history.js            # Block history management
+│   └── utils/
+│       └── config.js         # Server configuration
 └── server-simple.js          # WebSocket server (Primus)
 ```
 
@@ -212,6 +220,21 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Based on [eth-netstats](https://github.com/cubedro/eth-netstats) architecture
 - [goerli/ethstats-server](https://github.com/goerli/ethstats-server) for reference implementation
+- Compatible with [eth-netstats-client](https://github.com/ethereum/go-ethereum) (geth)
+
+## geth Compatibility
+
+This dashboard is compatible with geth's built-in ethstats client. Key implementation details:
+
+### Latency Measurement
+- Node sends `node-ping` with `{id, clientTime}`
+- Server responds with `node-pong` containing `{clientTime, serverTime}`
+- Node sends `latency` with `{id, latency}` (RTT as string)
+
+### Block Data
+- geth sends `difficulty` and `totalDiff` as **strings** (not numbers)
+- Server maps `totalDiff` → `totalDifficulty`
+- All numeric fields are parsed via `parseInt()` on reception
 
 ## Links
 

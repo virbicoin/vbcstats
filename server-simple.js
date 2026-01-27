@@ -143,6 +143,18 @@ function getNodeIP(spark) {
   
   return null;
 }
+
+// Helper function to get totalDifficulty from node (geth uses 'totalDiff' field)
+function getNodeTotalDifficulty(node) {
+  if (!node?.stats?.block) return 0;
+  const block = node.stats.block;
+  let diff = block.totalDifficulty || block.totalDiff || block.difficulty || 0;
+  if (typeof diff === 'string') {
+    diff = parseInt(diff, 10) || 0;
+  }
+  return diff;
+}
+
 const MAX_BLOCK_HISTORY = 200; // Keep last 200 blocks for calculation
 
 // Node-specific block tracking for propagation calculation (like GitHub implementation)
@@ -309,12 +321,19 @@ function calculateDifficulty(nodes) {
   if (!nodes || nodes.length === 0) return defaultDifficulty;
   
   // Get difficulties from active nodes
+  // geth sends difficulty as string, so we need to parse it
   const difficulties = nodes
     .filter(node => node.stats?.active && node.stats?.block)
     .map(node => {
-      return node.stats.block.difficulty || 
-             node.stats.block.totalDifficulty || 
-             0;
+      let diff = node.stats.block.difficulty || 
+                 node.stats.block.totalDifficulty ||
+                 node.stats.block.totalDiff || 
+                 0;
+      // Parse string to number if needed
+      if (typeof diff === 'string') {
+        diff = parseInt(diff, 10) || 0;
+      }
+      return diff;
     })
     .filter(diff => diff > 0);
   
@@ -411,7 +430,7 @@ setInterval(() => {
       pending: node.stats?.pending || 0,
       block: node.stats?.block?.number || 0,
       blockHash: node.stats?.block?.hash || '',
-      totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+      totalDifficulty: getNodeTotalDifficulty(node),
       transactions: node.stats?.block?.transactions?.length || 0,
       uncles: node.stats?.block?.uncles?.length || 0,
       lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
@@ -580,7 +599,7 @@ apiPrimus.on('connection', (spark) => {
           pending: node.stats?.pending || 0,
           block: node.stats?.block?.number || 0,
           blockHash: node.stats?.block?.hash || '',
-          totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+          totalDifficulty: getNodeTotalDifficulty(node),
           transactions: node.stats?.block?.transactions?.length || 0,
           uncles: node.stats?.block?.uncles?.length || 0,
           lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
@@ -822,7 +841,7 @@ apiPrimus.on('connection', (spark) => {
               pending: node.stats?.pending || 0,
               block: node.stats?.block?.number || 0,
               blockHash: node.stats?.block?.hash || '',
-              totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+              totalDifficulty: getNodeTotalDifficulty(node),
               transactions: node.stats?.block?.transactions?.length || 0,
               uncles: node.stats?.block?.uncles?.length || 0,
               lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
@@ -939,7 +958,7 @@ apiPrimus.on('connection', (spark) => {
               pending: node.stats?.pending || 0,
               block: node.stats?.block?.number || 0,
               blockHash: node.stats?.block?.hash || '',
-              totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+              totalDifficulty: getNodeTotalDifficulty(node),
               transactions: node.stats?.block?.transactions?.length || 0,
               uncles: node.stats?.block?.uncles?.length || 0,
               lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
@@ -1089,7 +1108,7 @@ clientPrimus.on('connection', (spark) => {
       pending: node.stats?.pending || 0,
       block: node.stats?.block?.number || 0,
       blockHash: node.stats?.block?.hash || '',
-      totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+      totalDifficulty: getNodeTotalDifficulty(node),
       transactions: node.stats?.block?.transactions?.length || 0,
       uncles: node.stats?.block?.uncles?.length || 0,
       lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
@@ -1144,7 +1163,7 @@ clientPrimus.on('connection', (spark) => {
     pending: node.stats?.pending || 0,
     block: node.stats?.block?.number || 0,
     blockHash: node.stats?.block?.hash || '',
-    totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+    totalDifficulty: getNodeTotalDifficulty(node),
     transactions: node.stats?.block?.transactions?.length || 0,
     uncles: node.stats?.block?.uncles?.length || 0,
     lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago
@@ -1315,7 +1334,7 @@ setInterval(() => {
     pending: node.stats?.pending || 0,
     block: node.stats?.block?.number || 0,
     blockHash: node.stats?.block?.hash || '',
-    totalDifficulty: node.stats?.block?.totalDifficulty || 0,
+    totalDifficulty: getNodeTotalDifficulty(node),
     transactions: node.stats?.block?.transactions?.length || 0,
     uncles: node.stats?.block?.uncles?.length || 0,
     lastBlockTime: calculateNodeBlockTime(node), // Individual node block time in seconds ago

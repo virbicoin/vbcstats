@@ -993,7 +993,11 @@ apiPrimus.on('connection', (spark) => {
 
   spark.on('node-ping', (data) => {
     if (!spark.auth) return;
-    spark.emit('node-pong', { serverTime: Date.now() });
+    // Return the clientTime that was sent by the client so it can calculate latency
+    spark.emit('node-pong', { 
+      clientTime: data.clientTime,
+      serverTime: Date.now() 
+    });
   });
 
   // Handle pong responses from API nodes (for server-initiated ping)
@@ -1016,6 +1020,21 @@ apiPrimus.on('connection', (spark) => {
 
   spark.on('latency', (data) => {
     if (!spark.auth) return;
+    
+    // Extract latency value and store on spark for periodic updates
+    const latencyValue = typeof data.latency === 'number' ? data.latency : 
+                         typeof data === 'number' ? data : 0;
+    if (latencyValue > 0) {
+      spark.measuredLatency = latencyValue;
+      spark.latency = latencyValue;
+      
+      // Also update directly in node
+      const node = Nodes.getNode({ id: spark.nodeId });
+      if (node && node.stats) {
+        node.stats.latency = latencyValue;
+      }
+    }
+    
     Nodes.updateLatency(spark.nodeId, data, (err, info) => {
       if (!err && info) {
         clientPrimus.write({ action: 'latency', data: info });

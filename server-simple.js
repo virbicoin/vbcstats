@@ -386,15 +386,25 @@ setInterval(() => {
     return;
   }
   
-  // Update latency from API sparks (primus-spark-latency provides automatic latency measurement)
+  // Update latency from API sparks
+  // Try multiple sources: spark.latency (primus plugin), spark.measuredLatency (our custom), or preserved value
   apiPrimus.forEach((apiSpark) => {
-    if (apiSpark && apiSpark.auth && apiSpark.nodeId && apiSpark.latency) {
+    if (apiSpark && apiSpark.auth && apiSpark.nodeId) {
       const node = Nodes.getNode({ id: apiSpark.nodeId });
       if (node && node.stats) {
-        // Only update if spark has a valid latency
-        if (typeof apiSpark.latency === 'number' && apiSpark.latency > 0) {
-          node.stats.latency = apiSpark.latency;
+        // Priority: our measured latency > primus plugin latency > existing latency
+        let newLatency = null;
+        
+        if (typeof apiSpark.measuredLatency === 'number' && apiSpark.measuredLatency > 0) {
+          newLatency = apiSpark.measuredLatency;
+        } else if (typeof apiSpark.latency === 'number' && apiSpark.latency > 0) {
+          newLatency = apiSpark.latency;
         }
+        
+        if (newLatency !== null) {
+          node.stats.latency = newLatency;
+        }
+        // If no new latency, keep the existing value (don't reset to 0)
       }
     }
   });
@@ -667,6 +677,15 @@ apiPrimus.on('connection', (spark) => {
     const blockReceiveTime = Date.now(); // Precise millisecond timestamp when block was received
     console.log('API BLOCK received from', spark.nodeId, ':', JSON.stringify(data).substring(0, 200));
     
+    // Extract latency if provided
+    if (data.stats?.latency && typeof data.stats.latency === 'number' && data.stats.latency > 0) {
+      spark.measuredLatency = data.stats.latency;
+      const node = Nodes.getNode({ id: spark.nodeId });
+      if (node && node.stats) {
+        node.stats.latency = data.stats.latency;
+      }
+    }
+    
     let block = data.block || data;
     if (!block || block.timestamp === undefined || block.timestamp === null) {
       console.error('Received block without timestamp:', data);
@@ -873,7 +892,14 @@ apiPrimus.on('connection', (spark) => {
   spark.on('stats', (data) => {
     console.log('API STATS received from', spark.nodeId, ':', JSON.stringify(data).substring(0, 200));
     if (!spark.auth) return;
-    Nodes.updateStats(spark.nodeId, data.stats || data, (err, info) => {
+    
+    // Extract latency from stats if provided by client
+    const statsData = data.stats || data;
+    if (statsData.latency && typeof statsData.latency === 'number' && statsData.latency > 0) {
+      spark.measuredLatency = statsData.latency;
+    }
+    
+    Nodes.updateStats(spark.nodeId, statsData, (err, info) => {
       if (!err && info) {
         console.log('Stats processed, broadcasting:', info.id);
         
@@ -980,10 +1006,10 @@ apiPrimus.on('connection', (spark) => {
       const node = Nodes.getNode({ id: spark.nodeId });
       if (node && node.stats) {
         node.stats.latency = latency;
-        console.log(`Updated latency for node ${spark.nodeId}: ${latency}ms`);
       }
       
-      // Also update spark.latency for consistency
+      // Store on spark for periodic updates
+      spark.measuredLatency = latency;
       spark.latency = latency;
     }
   });

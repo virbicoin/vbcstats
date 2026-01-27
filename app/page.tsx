@@ -902,9 +902,28 @@ function HomePage() {
 
             setLoadingStats(false);
           } else if (typedMessage.action === 'update' && typedMessage.data) {
-            // Update individual node stats but keep network stats and coordinates
-            // Do NOT process bestBlock changes in UPDATE actions
-            if (typedMessage.data.id && typedMessage.data.stats) {
+            // Handle periodic updates from server (every second)
+            // Update node stats while preserving coordinates and geo information
+            if (typedMessage.data.nodes && Array.isArray(typedMessage.data.nodes)) {
+              // Full nodes array update - merge with existing nodes to preserve coordinates
+              setNodes((prev) => {
+                return typedMessage.data!.nodes!.map((serverNode: Node) => {
+                  const existingNode = prev.find((n) => n.id === serverNode.id);
+                  if (existingNode) {
+                    // Preserve existing coordinates and geo, update everything else
+                    return {
+                      ...serverNode,
+                      // Preserve coordinates from existing node if server doesn't have them
+                      latitude: serverNode.latitude ?? existingNode.latitude,
+                      longitude: serverNode.longitude ?? existingNode.longitude,
+                      geo: serverNode.geo ?? existingNode.geo,
+                    };
+                  }
+                  return serverNode;
+                });
+              });
+            } else if (typedMessage.data.id && typedMessage.data.stats) {
+              // Individual node update
               setNodes((prev) =>
                 prev.map((node) => {
                   if (node.id === typedMessage.data!.id) {

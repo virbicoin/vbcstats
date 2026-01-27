@@ -974,10 +974,13 @@ apiPrimus.on('connection', (spark) => {
 
   spark.on('node-ping', (data) => {
     if (!spark.auth) return;
-    // Return the clientTime that was sent by the client so it can calculate latency
-    spark.emit('node-pong', { 
+    // eth-netstats-client sends node-ping with {id, clientTime}
+    // Server should respond with node-pong so client can calculate RTT
+    // Then client will send 'latency' event with the calculated value
+    console.log('API PIN Ping from:', data.id || spark.nodeId, 'clientTime:', data.clientTime);
+    spark.emit('node-pong', {
       clientTime: data.clientTime,
-      serverTime: Date.now() 
+      serverTime: Date.now()
     });
   });
 
@@ -1002,25 +1005,38 @@ apiPrimus.on('connection', (spark) => {
   spark.on('latency', (data) => {
     if (!spark.auth) return;
     
-    // Extract latency value and store on spark for periodic updates
-    const latencyValue = typeof data.latency === 'number' ? data.latency : 
-                         typeof data === 'number' ? data : 0;
-    if (latencyValue > 0) {
+    // eth-netstats-client sends: {id: "node_id", latency: "123"} (latency as string in ms)
+    // Extract the latency value (geth sends it as string)
+    const nodeId = data.id || spark.nodeId;
+    let latencyValue = 0;
+    if (typeof data.latency === 'string') {
+      latencyValue = parseInt(data.latency, 10);
+    } else if (typeof data.latency === 'number') {
+      latencyValue = data.latency;
+    }
+    
+    console.log('API PIN Latency from:', nodeId, 'value:', latencyValue, 'ms');
+    
+    if (latencyValue > 0 && !isNaN(latencyValue)) {
+      // Store on spark for reference
       spark.measuredLatency = latencyValue;
       spark.latency = latencyValue;
       
-      // Also update directly in node
-      const node = Nodes.getNode({ id: spark.nodeId });
+      // Update directly in node
+      const node = Nodes.getNode({ id: nodeId });
       if (node && node.stats) {
         node.stats.latency = latencyValue;
+        console.log('Updated node latency:', nodeId, '->', latencyValue, 'ms');
       }
+      
+      // Broadcast latency update to all clients
+      clientPrimus.forEach((clientSpark) => {
+        clientSpark.write({
+          action: 'latency',
+          data: { id: nodeId, latency: latencyValue }
+        });
+      });
     }
-    
-    Nodes.updateLatency(spark.nodeId, data, (err, info) => {
-      if (!err && info) {
-        clientPrimus.write({ action: 'latency', data: info });
-      }
-    });
   });
 
   spark.on('end', () => {

@@ -499,25 +499,22 @@ function HomePage() {
     // Determine the appropriate server URL based on environment
     const customWsUrl = process.env['NEXT_PUBLIC_WS_URL'];
     const isProduction = process.env.NODE_ENV === 'production';
-    const serverPort = process.env['NEXT_PUBLIC_SERVER_PORT'] || '5000';
 
-    // Use custom WS URL if provided, otherwise determine based on environment
+    // Use custom WS URL if provided, otherwise use same origin (unified server)
     let baseUrl: string;
     let wsUrl: string;
 
-    if (isProduction) {
-      // In production, always use HTTPS for script loading
-      baseUrl = 'https://stats.digitalregion.jp';
-      // For WebSocket, use the custom URL if provided, otherwise default to WSS
-      if (customWsUrl) {
-        wsUrl = customWsUrl;
-      } else {
-        wsUrl = 'wss://stats.digitalregion.jp';
-      }
+    if (customWsUrl) {
+      wsUrl = customWsUrl;
+      baseUrl = customWsUrl.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:');
+    } else if (isProduction) {
+      // In production, use same origin with secure protocols
+      baseUrl = `${window.location.protocol}//${window.location.host}`;
+      wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
     } else {
-      // Development environment - use HTTP for both script and WebSocket
-      baseUrl = `http://localhost:${serverPort}`;
-      wsUrl = `ws://localhost:${serverPort}`;
+      // Development environment - use same origin
+      baseUrl = `${window.location.protocol}//${window.location.host}`;
+      wsUrl = `ws://${window.location.host}`;
     }
 
     // Load Primus client library from server - prevent duplicate script loading

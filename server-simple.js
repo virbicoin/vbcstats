@@ -1,15 +1,21 @@
 #!/usr/bin/env node
-// Simple server without Next.js integration
+// Unified server: Next.js + WebSocket (Primus) on a single port
 const expressApp = require('./lib/express');
 const { banned, reserved } = require('./lib/utils/config');
 const Collection = require('./lib/collection');
 const geoip = require('geoip-lite');
 const http = require('http');
 const Primus = require('primus');
+const next = require('next');
 
-const PORT = parseInt(process.env.PORT_SERVER || '5000', 10);
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const dev = process.env.NODE_ENV !== 'production';
 const WS_SECRET_ENV = process.env.WS_SECRET || '';
 const WS_SECRET = WS_SECRET_ENV.includes('|') ? WS_SECRET_ENV.split('|') : [WS_SECRET_ENV];
+
+// Initialize Next.js
+const nextApp = next({ dev });
+const nextHandler = nextApp.getRequestHandler();
 
 const app = expressApp;
 const server = http.createServer(app);
@@ -1435,6 +1441,17 @@ setInterval(() => {
   });
 }, 5000); // Ping API nodes every 5 seconds
 
-server.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+// Prepare Next.js and start the unified server
+nextApp.prepare().then(() => {
+  // All non-API/non-static requests handled by Next.js
+  app.all('*', (req, res) => {
+    return nextHandler(req, res);
+  });
+
+  server.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT} (${dev ? 'development' : 'production'})`);
+  });
+}).catch((err) => {
+  console.error('Failed to start Next.js:', err);
+  process.exit(1);
 });

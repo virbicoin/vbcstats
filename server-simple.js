@@ -1444,7 +1444,7 @@ setInterval(() => {
 // Prepare Next.js and start the unified server
 nextApp.prepare().then(() => {
   // All non-API/non-static requests handled by Next.js
-  app.all('*', (req, res) => {
+  app.all('{*path}', (req, res) => {
     return nextHandler(req, res);
   });
 

@@ -7,7 +7,7 @@ const geoip = require('geoip-lite');
 const http = require('http');
 const Primus = require('primus');
 
-const PORT = parseInt(process.env.PORT_SERVER || '4000', 10);
+const PORT = parseInt(process.env.PORT_SERVER || '5000', 10);
 const WS_SECRET_ENV = process.env.WS_SECRET || '';
 const WS_SECRET = WS_SECRET_ENV.includes('|') ? WS_SECRET_ENV.split('|') : [WS_SECRET_ENV];
 

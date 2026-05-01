@@ -626,7 +626,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
 
     // Check if node is active - consider node active if it has peers or propagation data
     const peers = node.stats?.peers ?? node.peers ?? 0;
-    const isActive = node.stats?.active ?? (peers > 0) ?? node.id.toString().includes('Gvbc');
+    const isActive = node.stats?.active ?? (peers > 0 || node.id.toString().includes('Gvbc'));
 
     if (!isActive && propagation === 0) return 'propagation-inactive';
 
@@ -643,7 +643,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
 
     // Check if node is active - consider node active if it has peers or propagation data
     const peers = node.stats?.peers ?? node.peers ?? 0;
-    const isActive = node.stats?.active ?? (peers > 0) ?? node.id.toString().includes('Gvbc');
+    const isActive = node.stats?.active ?? (peers > 0 || node.id.toString().includes('Gvbc'));
 
     if (!isActive && avgPropagation === 0) return 'propagation-inactive';
 

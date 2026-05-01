@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import dynamic from 'next/dynamic';
 
-const Map = dynamic(() => import('./Map'), {
+const Map = dynamic(() => import('../app/Map'), {
   loading: () => (
     <div className="w-full h-full bg-[#0d1421] border border-[#1e3a5f] flex items-center justify-center">
       <p className="text-gray-400">Loading Map...</p>

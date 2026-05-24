@@ -1,4 +1,4 @@
-import { MinerData } from '../types/stats';
+import { MinerData } from '@/types/stats';
 
 interface MinerBlocksProps {
   miners: MinerData[];

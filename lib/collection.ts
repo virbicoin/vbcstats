@@ -1,16 +1,87 @@
-// Collection class for managing nodes
-class Collection {
-  constructor(externalPrimus) {
+export interface BlockData {
+  number?: number;
+  hash?: string;
+  parentHash?: string;
+  timestamp?: number;
+  difficulty?: number | string;
+  totalDifficulty?: number | string;
+  totalDiff?: number | string;
+  gasLimit?: number;
+  gasUsed?: number;
+  transactions?: unknown[];
+  uncles?: unknown[];
+  miner?: string;
+  propagation?: number;
+  received?: number;
+  arrived?: number;
+  time?: number;
+}
+
+export interface NodeStats {
+  active?: boolean;
+  mining?: boolean;
+  peers?: number;
+  pending?: number;
+  pendingUpdatedAt?: number;
+  latency?: number;
+  gasPrice?: number;
+  block?: BlockData;
+  uptime?: number | { up?: number; down?: number; lastStatus?: number };
+  propagationAvg?: number;
+}
+
+export interface NodeInfo {
+  name?: string;
+  type?: string;
+  client?: string;
+  node?: string;
+  ip?: string;
+}
+
+export interface GeoData {
+  range?: number[];
+  country?: string;
+  region?: string;
+  eu?: string;
+  timezone?: string;
+  city?: string;
+  ll?: [number, number];
+  metro?: number;
+  area?: number;
+}
+
+export interface NodeData {
+  id: string;
+  info?: NodeInfo;
+  stats?: NodeStats;
+  geo?: GeoData | null;
+  latitude?: number;
+  longitude?: number;
+  uptime?: { up?: number; down?: number; lastStatus?: number };
+  ip?: string;
+  spark?: string;
+  latency?: number;
+  secret?: string;
+}
+
+type Callback<T = NodeData> = (err: Error | null, data?: T) => void;
+
+export default class Collection {
+  private nodes: Map<string, NodeData>;
+  private externalPrimus: unknown;
+  private chartsCallback: ((err: Error | null, data: object) => void) | null = null;
+
+  constructor(externalPrimus: unknown) {
     this.nodes = new Map();
     this.externalPrimus = externalPrimus;
   }
 
-  add(node, callback) {
+  add(node: NodeData, callback?: Callback): void {
     this.nodes.set(node.id, node);
     if (callback) callback(null, node);
   }
 
-  update(nodeId, data, callback) {
+  update(nodeId: string, data: Partial<NodeData>, callback?: Callback): void {
     const node = this.nodes.get(nodeId);
     if (node) {
       Object.assign(node, data);
@@ -20,15 +91,15 @@ class Collection {
     }
   }
 
-  all() {
+  all(): NodeData[] {
     return Array.from(this.nodes.values());
   }
 
-  getNode(query) {
+  getNode(query: { id: string }): NodeData | undefined {
     return this.nodes.get(query.id);
   }
 
-  inactive(nodeId, callback) {
+  inactive(nodeId: string, callback?: Callback): void {
     const node = this.nodes.get(nodeId);
     if (node && node.stats) {
       node.stats.active = false;
@@ -38,10 +109,9 @@ class Collection {
     }
   }
 
-  addBlock(nodeId, blockData, callback) {
+  addBlock(nodeId: string, blockData: BlockData, callback?: Callback): void {
     const node = this.nodes.get(nodeId);
     if (node && node.stats) {
-      // geth sends difficulty and totalDifficulty as strings, convert to numbers
       if (blockData.difficulty !== undefined) {
         blockData.difficulty =
           typeof blockData.difficulty === 'string'
@@ -54,12 +124,11 @@ class Collection {
             ? parseInt(blockData.totalDifficulty, 10) || 0
             : blockData.totalDifficulty;
       }
-      // geth uses 'totalDiff' field name
       if (blockData.totalDiff !== undefined) {
         blockData.totalDifficulty =
           typeof blockData.totalDiff === 'string'
             ? parseInt(blockData.totalDiff, 10) || 0
-            : blockData.totalDiff;
+            : (blockData.totalDiff as number);
       }
       node.stats.block = blockData;
       if (callback) callback(null, node);
@@ -68,49 +137,44 @@ class Collection {
     }
   }
 
-  updatePending(nodeId, data, callback) {
+  updatePending(nodeId: string, data: number | { pending?: number }, callback?: Callback): void {
     const node = this.nodes.get(nodeId);
     if (node && node.stats) {
-      // Handle both formats: { pending: N } or just N
       const pendingValue =
-        typeof data === 'number' ? data : typeof data.pending === 'number' ? data.pending : 0;
+        typeof data === 'number'
+          ? data
+          : typeof (data as { pending?: number }).pending === 'number'
+            ? (data as { pending: number }).pending
+            : 0;
       node.stats.pending = pendingValue;
-      node.stats.pendingUpdatedAt = Date.now(); // Track when pending was last updated
+      node.stats.pendingUpdatedAt = Date.now();
       if (callback) callback(null, node);
     } else {
       if (callback) callback(new Error('Node not found'));
     }
   }
 
-  updateStats(nodeId, data, callback) {
+  updateStats(nodeId: string, data: Partial<NodeStats>, callback?: Callback): void {
     const node = this.nodes.get(nodeId);
     if (node) {
-      // Initialize stats if not exists
       if (!node.stats) {
         node.stats = {};
       }
-      // Preserve existing latency and pending before Object.assign overwrites them
       const existingLatency = node.stats.latency;
       const existingPending = node.stats.pending;
       const existingPendingUpdatedAt = node.stats.pendingUpdatedAt;
       Object.assign(node.stats, data);
-      // Always restore latency if new data doesn't have a valid latency
-      // (data.latency is undefined when stats event doesn't include latency)
-      if (data.latency === undefined && existingLatency > 0) {
+      if (data.latency === undefined && existingLatency && existingLatency > 0) {
         node.stats.latency = existingLatency;
       }
-      // Handle pending: reset to 0 if not updated for 30 seconds
       if (data.pending === undefined) {
         if (existingPendingUpdatedAt && Date.now() - existingPendingUpdatedAt > 30000) {
-          // Pending hasn't been updated in 30 seconds, reset to 0
           node.stats.pending = 0;
         } else if (existingPending !== undefined) {
-          // Preserve existing pending if recent
           node.stats.pending = existingPending;
           node.stats.pendingUpdatedAt = existingPendingUpdatedAt;
         }
       } else {
-        // New pending data received, update timestamp
         node.stats.pendingUpdatedAt = Date.now();
       }
       if (callback) callback(null, node);
@@ -119,17 +183,19 @@ class Collection {
     }
   }
 
-  addHistory(sparkId, data, callback) {
-    // Mock implementation
+  addHistory(_sparkId: string, data: unknown, callback?: Callback<unknown>): void {
     if (callback) callback(null, data);
   }
 
-  updateLatency(nodeId, data, callback) {
+  updateLatency(nodeId: string, data: number | { latency?: number }, callback?: Callback): void {
     const node = this.nodes.get(nodeId);
     if (node && node.stats) {
-      // Handle both formats: { latency: N } or just N
       const latencyValue =
-        typeof data === 'number' ? data : typeof data.latency === 'number' ? data.latency : 0;
+        typeof data === 'number'
+          ? data
+          : typeof (data as { latency?: number }).latency === 'number'
+            ? (data as { latency: number }).latency
+            : 0;
       if (latencyValue > 0) {
         node.stats.latency = latencyValue;
       }
@@ -139,17 +205,14 @@ class Collection {
     }
   }
 
-  setChartsCallback(callback) {
+  setChartsCallback(callback: (err: Error | null, data: object) => void): void {
     this.chartsCallback = callback;
-    // Mock implementation
     setTimeout(() => callback(null, {}), 1000);
   }
 
-  getCharts() {
+  getCharts(): void {
     if (this.chartsCallback) {
       this.chartsCallback(null, {});
     }
   }
 }
-
-module.exports = Collection;

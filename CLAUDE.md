@@ -49,7 +49,7 @@ vbcstats/
 │   ├── history.js              # ブロック履歴管理
 │   └── utils/
 │       └── config.js           # サーバー設定
-└── server-simple.js            # WebSocketサーバー（Primus）
+└── server.js                   # WebSocketサーバー（Primus）
 ```
 
 ## 開発コマンド
@@ -177,6 +177,7 @@ useEffect(() => {
 4. **Latencyが0ms**: サーバーの`node-ping`/`latency`イベントハンドラを確認（gethは文字列でlatencyを送信）
 5. **Total Difficultyが表示されない**: gethは`totalDiff`フィールド名で文字列として送信するため、適切なマッピングと型変換が必要
 6. **マップでブロック番号が"0"**: ブロックデータが未受信のノードは`block !== undefined && block > 0`でフィルタリング
+7. **GeoIP精度向上**: `geoip-lite` 2.0.2以降はデータベースが更新され地図の精度が向上するため、2.x系を使用すること
 
 ## 関連リソース
 

@@ -16,10 +16,7 @@ const eslintConfig = tseslint.config(
   },
   {
     ignores: [
-      "lib/**/*",
       "backup/**/*",
-      "server.js",
-      "server-simple.js",
       "bin/**/*",
       ".next/**/*",
       "node_modules/**/*",

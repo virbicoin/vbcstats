@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // Turbopack configuration (Next.js 16+ default)
   turbopack: {
     resolveAlias: {
-      '@': '.',
+      '@': './app',
     },
   },
 

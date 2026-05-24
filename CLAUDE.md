@@ -8,54 +8,48 @@
 
 ### 技術スタック
 
-- **フロントエンド**: Next.js 16, React 19, TypeScript 5.9
+- **フロントエンド**: Next.js 16.2, React 19.2, TypeScript 6.0
 - **スタイリング**: Tailwind CSS 4.x
-- **チャート**: Recharts, D3.js
+- **チャート**: Recharts
 - **マップ**: Leaflet, React-Leaflet
-- **リアルタイム通信**: Primus (WebSocket)
-- **バックエンド**: Express 5, Node.js
+- **リアルタイム通信**: Primus 8 (WebSocket)
+- **バックエンド**: Express 5, Node.js 20+
 - **地理情報**: geoip-lite
+- **ランタイム**: tsx（TypeScript直接実行）
 
 ## プロジェクト構造
 
 ```
 vbcstats/
-├── app/                        # Next.js App Router
+├── app/                        # Next.js App Router（ルーティングのみ）
 │   ├── page.tsx                # メインダッシュボードページ
 │   ├── layout.tsx              # ルートレイアウト
-│   ├── providers.tsx           # React コンテキストプロバイダー
 │   ├── globals.css             # グローバルスタイル
 │   └── api/
 │       └── geoip/route.ts      # GeoIP APIエンドポイント
 ├── components/                 # UIコンポーネント
-│   ├── Charts.tsx              # チャートグリッド
+│   ├── Charts.tsx              # チャートグリッド（Recharts）
 │   ├── Nodes.tsx               # ノードテーブル
 │   ├── Map.tsx                 # Leafletマップコンポーネント
-│   ├── ChartCard.tsx           # D3.jsチャートカード
-│   ├── StatCard.tsx            # 統計表示カード
-│   ├── WorldMap.tsx            # ワールドマップ
-│   ├── MinerBlocks.tsx         # マイナーブロック表示
-│   ├── header.tsx              # ヘッダーコンポーネント
-│   ├── footer.tsx              # フッターコンポーネント
-│   └── layout.tsx              # 共通レイアウト
+│   ├── header.tsx              # ヘッダー
+│   └── footer.tsx              # フッター
 ├── types/                      # TypeScript型定義
-│   ├── stats.ts                # 統計関連の型
-│   ├── icons.ts                # アイコン型
-│   ├── primus-client.d.ts      # Primus型定義
-│   └── server.d.ts             # サーバー型定義
-├── lib/                        # サーバーサイドライブラリ（CommonJS）
-│   ├── express.js              # Expressアプリ設定
-│   ├── collection.js           # ノードコレクション管理
-│   ├── history.js              # ブロック履歴管理
+│   └── server.d.ts             # Primus等のambient型宣言
+├── lib/                        # サーバーサイドライブラリ（TypeScript）
+│   ├── express.ts              # Expressアプリ設定
+│   ├── collection.ts           # ノードコレクション管理
 │   └── utils/
-│       └── config.js           # サーバー設定
-└── server.js                   # WebSocketサーバー（Primus）
+│       └── config.ts           # サーバー設定（banned/reserved）
+├── server.ts                   # 統合サーバー（Next.js + Primus）
+├── public/                     # 静的ファイル
+├── tsconfig.json               # フロントエンド用（paths: @/* → ./*）
+└── tsconfig.server.json        # サーバー用（module: nodenext）
 ```
 
 ## 開発コマンド
 
 ```bash
-# 開発サーバー起動（フロントエンド + WebSocketサーバー）
+# 開発サーバー起動（Next.js + WebSocketを単一ポートで統合）
 npm run dev
 
 # 本番ビルド
@@ -64,7 +58,7 @@ npm run build
 # 本番サーバー起動
 npm run start
 
-# リント & 型チェック
+# リント & 型チェック & フォーマット確認
 npm run check
 
 # コードフォーマット
@@ -76,20 +70,20 @@ npm run format
 `.env`ファイルで設定（`.gitignore`に含まれています）：
 
 ```env
-PORT=3000              # Next.jsポート
-PORT_SERVER=4000       # WebSocketサーバーポート
+PORT=5000              # 統合サーバーポート（Next.js + WebSocket）
 WS_SECRET=xxx          # WebSocket認証シークレット（複数可：xxx|yyy|zzz）
-NEXT_PUBLIC_WS_URL=wss://example.com  # クライアント用WebSocket URL
+NEXT_PUBLIC_WS_URL=    # クライアント用WebSocket URL（省略時は同一オリジン）
 ```
 
 ## 重要な実装パターン
 
-### 1. WebSocket通信（Primus）
+### 1. 統合サーバーアーキテクチャ
 
-サーバーは3つのPrimusエンドポイントを公開：
-- `/primus` - クライアント（ブラウザ）向け
-- `/external` - 外部サービス向け
-- `/api` - ノード（マイナー）からのデータ受信
+`server.ts`が単一ポートでNext.jsとPrimus WebSocketを同時に提供：
+- `/primus` - クライアント（ブラウザ）向けWebSocket
+- `/external` - 外部サービス向けWebSocket
+- `/api` - ノード（マイナー）からのデータ受信WebSocket
+- その他全て - Next.js App Router
 
 ### 2. eth-netstats-client (geth) 互換性
 
@@ -120,7 +114,7 @@ return 'N/A';
 return value.toFixed(2); // valueがundefinedや文字列の場合エラー
 ```
 
-### 3. ResponsiveContainerの使用
+### 4. ResponsiveContainerの使用
 
 Rechartsの`ResponsiveContainer`には必ず`minWidth`と`minHeight`を指定：
 
@@ -130,7 +124,7 @@ Rechartsの`ResponsiveContainer`には必ず`minWidth`と`minHeight`を指定：
 </ResponsiveContainer>
 ```
 
-### 4. リアルタイムデータの安定化
+### 5. リアルタイムデータの安定化
 
 ブロック更新時のUI点滅を防ぐため、`stable*`状態変数パターンを使用：
 
@@ -144,27 +138,36 @@ useEffect(() => {
 }, [newValue]);
 ```
 
-## セキュリティ考慮事項
+### 6. パスエイリアス
+
+- `tsconfig.json`: `"@/*": ["./*"]` — プロジェクトルートからの解決
+- Next.js Turbopackは`tsconfig.json`のpathsを自動的に読み取る（`resolveAlias`不要）
+- TypeScript 6.0では`baseUrl`は非推奨（使用しない）
+
+## セキュリティ
 
 ### 確認済みの対策
 
 1. **環境変数**: `.env*`ファイルは`.gitignore`に含まれ、シークレットはリポジトリに含まれない
-2. **入力検証**: GeoIP APIでIPアドレス形式を検証
-3. **プライベートIP除外**: プライベートIPアドレスはGeoIPルックアップから除外
-4. **CORS設定**: Express側でCORS有効化
+2. **WS認証**: APIノード接続時にWS_SECRETで認証チェック
+3. **入力検証**: GeoIP APIでIPアドレス形式をバリデーション（IPv4正規表現）
+4. **プライベートIP除外**: プライベートIPアドレスはGeoIPルックアップから除外
+5. **接続レート制限**: API接続数を制限（C_LIMIT=5/30秒）
+6. **BAN機能**: `banned`リストでIPベースのブロック対応
+7. **認証チェック**: 全てのAPIイベントハンドラで`spark.auth`を確認
 
-### 注意が必要な箇所
+### 既知の事項
 
-1. **WS_SECRET**: WebSocket認証用シークレットは適切に管理すること
-2. **X-Forwarded-For**: プロキシ経由のIP取得時にスプーフィング可能性あり
-3. **依存関係**: `npm audit`で定期的にチェックを実行すること
+1. **postcss脆弱性（moderate）**: Next.js内部のpostcssにXSS可能性 — Next.js更新待ち
+2. **CORS**: Express側がワイドオープンだが、Next.jsが全リクエストを処理するため実質影響なし
+3. **X-Forwarded-For**: プロキシ経由のIP取得時にスプーフィング可能性あり
 
 ## テスト
 
 現在、自動テストは未実装。手動テスト手順：
 
 1. `npm run dev`でサーバー起動
-2. ブラウザで`http://localhost:3000`にアクセス
+2. ブラウザで`http://localhost:5000`にアクセス
 3. ノードが接続され、リアルタイムデータが表示されることを確認
 
 ## トラブルシューティング
@@ -172,12 +175,12 @@ useEffect(() => {
 ### よくある問題
 
 1. **チャートが表示されない**: `ResponsiveContainer`の親要素に高さが設定されているか確認
-2. **WebSocket接続エラー**: `NEXT_PUBLIC_WS_URL`が正しいか確認
+2. **WebSocket接続エラー**: ブラウザと同一ポートで動作するため、通常は設定不要
 3. **GeoIPデータなし**: `npm run build`でGeoIPデータがコピーされているか確認
-4. **Latencyが0ms**: サーバーの`node-ping`/`latency`イベントハンドラを確認（gethは文字列でlatencyを送信）
-5. **Total Difficultyが表示されない**: gethは`totalDiff`フィールド名で文字列として送信するため、適切なマッピングと型変換が必要
-6. **マップでブロック番号が"0"**: ブロックデータが未受信のノードは`block !== undefined && block > 0`でフィルタリング
-7. **GeoIP精度向上**: `geoip-lite` 2.0.2以降はデータベースが更新され地図の精度が向上するため、2.x系を使用すること
+4. **Latencyが0ms**: gethは文字列でlatencyを送信するため型変換を確認
+5. **Total Difficultyが表示されない**: gethは`totalDiff`フィールド名で文字列として送信
+6. **マップでブロック番号が"0"**: `block !== undefined && block > 0`でフィルタリング
+7. **モジュール解決エラー**: `.next`を削除してブラウザをハードリフレッシュ（Ctrl+Shift+R）
 
 ## 関連リソース
 

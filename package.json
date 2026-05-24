@@ -36,11 +36,11 @@
     "prebuild": "npm run check",
     "build": "next build && ./scripts/copy-geoip-data.sh",
     "start": "NODE_ENV=production tsx --env-file-if-exists=.env server.ts",
-    "check": "eslint app lib && tsc --noEmit && npm run format:check",
-    "lint": "eslint app lib",
-    "lint:fix": "eslint app lib --fix",
-    "format": "prettier --write \"{app,lib,types}/**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "format:check": "prettier --check \"{app,lib,types}/**/*.{ts,tsx,js,jsx,json,css,md}\""
+    "check": "eslint app components lib && tsc --noEmit && npm run format:check",
+    "lint": "eslint app components lib",
+    "lint:fix": "eslint app components lib --fix",
+    "format": "prettier --write \"{app,components,lib,types}/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"{app,components,lib,types}/**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

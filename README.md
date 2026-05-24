@@ -1,243 +1,153 @@
 # VBC Stats - Network Dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.17.0-brightgreen)](https://nodejs.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.6.0-brightgreen)](https://nodejs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue)](https://www.typescriptlang.org/)
 
-A modern, real-time blockchain network statistics dashboard for VirBiCoin/GreenVibes Coin (GVBC) built with Next.js 16, React 19, and TypeScript.
+A modern, real-time blockchain network statistics dashboard for VirBiCoin/GreenVibes Coin (GVBC). Built with Next.js 16, React 19, and TypeScript 6.
 
 ## Features
 
-- **Real-time Statistics**: Live updates of blockchain network metrics via WebSocket
+- **Real-time Statistics**: Live blockchain metrics via WebSocket (Primus)
 - **Network Map**: Interactive world map showing node locations with Leaflet
-- **Modern UI**: Beautiful, responsive design with Tailwind CSS 4.x
-- **Interactive Charts**: Recharts and D3.js powered visualizations
+- **Modern UI**: Responsive design with Tailwind CSS 4.x
+- **Interactive Charts**: Recharts-powered visualizations
 - **Node Management**: Sortable, filterable node table with real-time updates
-- **TypeScript**: Full type safety and better developer experience
+- **Unified Server**: Single port serves both Next.js and WebSocket
 - **Docker Support**: Production-ready Docker configuration
+- **geth Compatible**: Works with eth-netstats-client protocol
 
 ## Tech Stack
 
 | Category | Technology |
 |----------|------------|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5.9 |
-| UI Library | React 19 |
+| Framework | Next.js 16.2 (App Router, Turbopack) |
+| Language | TypeScript 6.0 |
+| UI Library | React 19.2 |
 | Styling | Tailwind CSS 4.x |
-| Charts | Recharts, D3.js |
+| Charts | Recharts |
 | Maps | Leaflet, React-Leaflet |
-| Real-time | Primus (WebSocket) |
-| Backend | Express 5, Node.js |
+| Real-time | Primus 8 (WebSocket) |
+| Backend | Express 5, Node.js 20+ |
 | GeoIP | geoip-lite |
+| Runtime | tsx (TypeScript execution) |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18.17.0 or later
-- npm 9.x or later
+- Node.js 20.6.0 or later
+- npm 10.x or later
 
 ### Installation
-
-1. Clone the repository:
 
 ```bash
 git clone https://github.com/virbicoin/vbcstats.git
 cd vbcstats
-```
-
-2. Install dependencies:
-
-```bash
 npm install
 ```
 
-3. Create environment file:
+### Configuration
 
 ```bash
 cp .env.example .env
 ```
 
-4. Edit `.env` with your configuration:
+Edit `.env`:
 
 ```env
-PORT=3000
-PORT_SERVER=4000
-WS_SECRET=your_secret_here
-NEXT_PUBLIC_WS_URL=wss://your-domain.com
+PORT=5000              # Server port (Next.js + WebSocket unified)
+WS_SECRET=your_secret  # WebSocket auth secret (multiple: secret1|secret2)
+NEXT_PUBLIC_WS_URL=    # Client WebSocket URL (omit for same-origin)
 ```
 
-5. Start the development server:
+### Development
 
 ```bash
 npm run dev
 ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:5000](http://localhost:5000) in your browser.
 
-## Available Scripts
+## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start development server (Next.js + WebSocket) |
+| `npm run dev` | Start development server (unified Next.js + WebSocket) |
 | `npm run build` | Build for production |
 | `npm run start` | Start production server |
-| `npm run check` | Run ESLint, TypeScript check, and Prettier |
-| `npm run lint` | Run ESLint only |
-| `npm run lint:fix` | Fix ESLint errors automatically |
+| `npm run check` | Run ESLint + TypeScript check + Prettier check |
 | `npm run format` | Format code with Prettier |
-| `npm run format:check` | Check code formatting |
 
 ## Project Structure
 
 ```
-├── app/                      # Next.js App Router
-│   ├── layout.tsx            # Root layout
-│   ├── page.tsx              # Main dashboard page
-│   ├── providers.tsx         # React context providers
-│   ├── globals.css           # Global styles
-│   └── api/
-│       └── geoip/route.ts    # GeoIP API endpoint
-├── components/               # UI components
-│   ├── Charts.tsx            # Chart grid
-│   ├── Nodes.tsx             # Node table
-│   ├── Map.tsx               # Leaflet map component
-│   ├── ChartCard.tsx         # D3.js chart card
-│   ├── StatCard.tsx          # Statistics card
-│   ├── WorldMap.tsx          # World map component
-│   ├── MinerBlocks.tsx       # Miner blocks display
-│   ├── header.tsx            # Header component
-│   ├── footer.tsx            # Footer component
-│   └── layout.tsx            # Common layout
-├── types/                    # TypeScript types
-│   ├── stats.ts              # Statistics types
-│   ├── icons.ts              # Icon types
-│   ├── primus-client.d.ts    # Primus type definitions
-│   └── server.d.ts           # Server type definitions
-├── lib/                      # Server-side libraries (CommonJS)
-│   ├── express.js            # Express app setup
-│   ├── collection.js         # Node collection management
-│   ├── history.js            # Block history management
-│   └── utils/
-│       └── config.js         # Server configuration
-└── server-simple.js          # WebSocket server (Primus)
+vbcstats/
+├── app/                    # Next.js App Router (routing only)
+│   ├── layout.tsx          # Root layout
+│   ├── page.tsx            # Main dashboard page
+│   ├── globals.css         # Global styles
+│   └── api/geoip/route.ts  # GeoIP API endpoint
+├── components/             # UI components
+│   ├── Charts.tsx          # Chart grid (Recharts)
+│   ├── Nodes.tsx           # Node table
+│   ├── Map.tsx             # Leaflet map
+│   ├── header.tsx          # Header
+│   └── footer.tsx          # Footer
+├── lib/                    # Server-side libraries (TypeScript)
+│   ├── collection.ts       # Node collection management
+│   ├── express.ts          # Express app setup
+│   └── utils/config.ts     # Server configuration
+├── types/                  # TypeScript type definitions
+│   └── server.d.ts         # Ambient module declarations
+├── server.ts               # Unified server entry point
+├── tsconfig.json           # Frontend TypeScript config
+├── tsconfig.server.json    # Server TypeScript config
+└── Dockerfile              # Production Docker image
 ```
 
-## Dashboard Features
+## Architecture
 
-### Network Statistics
-- Best block number with real-time updates
-- Last block timestamp with color-coded age indicator
-- Average block time calculation
-- Network difficulty and hashrate
-- Gas price and gas limit
-- Active/total node count
+The server (`server.ts`) runs on a single port, providing:
 
-### Real-time Charts
-- Block time trends (LineChart)
-- Network difficulty (AreaChart)
-- Transaction count (AreaChart)
-- Block propagation times (LineChart)
-- Uncle count (BarChart)
-- Gas spending (AreaChart)
-
-### Node Information
-- Sortable columns (name, latency, block, etc.)
-- Pin favorite nodes
-- Real-time latency and propagation display
-- Geographic location via GeoIP
-- Block time counter per node
-
-### Network Map
-- Interactive Leaflet map
-- Node markers with active/inactive status
-- Popup with node details
+- **`/primus`** — WebSocket for browser clients (real-time dashboard updates)
+- **`/external`** — WebSocket for external services
+- **`/api`** — WebSocket for blockchain nodes (miners/validators)
+- **`/*`** — Next.js App Router (all HTTP requests)
 
 ## Docker Deployment
 
-Build and run with Docker:
-
 ```bash
-# Build image
 docker build -t vbcstats .
-
-# Run container
-docker run -d -p 3000:3000 -p 4000:4000 \
+docker run -d -p 5000:5000 \
   -e WS_SECRET=your_secret \
-  -e NEXT_PUBLIC_WS_URL=wss://your-domain.com \
   vbcstats
 ```
 
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Next.js server port | `3000` |
-| `PORT_SERVER` | WebSocket server port | `4000` |
-| `WS_SECRET` | WebSocket authentication secret(s), pipe-separated for multiple | - |
-| `NEXT_PUBLIC_WS_URL` | Public WebSocket URL for clients | - |
-
 ## Security
 
-- Environment files (`.env*`) are excluded from version control
-- IP address validation on GeoIP API endpoint
-- Private IP addresses are filtered from GeoIP lookups
-- WebSocket authentication via shared secret
-
-### Security Audit
-
-Run security audit:
-
-```bash
-npm audit
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run checks (`npm run check`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Code Style
-
-This project uses:
-- **ESLint** for linting
-- **Prettier** for code formatting
-- **TypeScript** strict mode
-
-Run `npm run format` before committing.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Based on [eth-netstats](https://github.com/cubedro/eth-netstats) architecture
-- [goerli/ethstats-server](https://github.com/goerli/ethstats-server) for reference implementation
-- Compatible with [eth-netstats-client](https://github.com/ethereum/go-ethereum) (geth)
+- WebSocket authentication via shared secret (WS_SECRET)
+- IP-based ban list for API connections
+- Connection rate limiting (5 connections / 30s)
+- IP address validation on GeoIP endpoint
+- Private IP filtering
+- Environment secrets excluded from version control
 
 ## geth Compatibility
 
-This dashboard is compatible with geth's built-in ethstats client. Key implementation details:
+Compatible with geth's built-in ethstats client:
 
-### Latency Measurement
-- Node sends `node-ping` with `{id, clientTime}`
-- Server responds with `node-pong` containing `{clientTime, serverTime}`
-- Node sends `latency` with `{id, latency}` (RTT as string)
-
-### Block Data
-- geth sends `difficulty` and `totalDiff` as **strings** (not numbers)
-- Server maps `totalDiff` → `totalDifficulty`
-- All numeric fields are parsed via `parseInt()` on reception
+- **Latency**: `node-ping` → `node-pong` → `latency` (RTT as string)
+- **Blocks**: `difficulty` and `totalDiff` sent as strings, parsed on reception
+- **Field mapping**: `totalDiff` → `totalDifficulty`
 
 ## Links
 
 - [Repository](https://github.com/virbicoin/vbcstats)
 - [Issues](https://github.com/virbicoin/vbcstats/issues)
 - [VirBiCoin Website](https://vbc.digitalregion.jp)
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.

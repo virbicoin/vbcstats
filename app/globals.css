@@ -1,0 +1,293 @@
+@import 'tailwindcss';
+
+/* Tailwind CSS 4 Theme Configuration - VBC Brand Colors */
+@theme {
+  /* VBC Brand Colors - Blue Theme like explorer.digitalregion.jp */
+  --color-primary: #3b82f6;
+  --color-primary-light: #60a5fa;
+  --color-primary-dark: #2563eb;
+  --color-secondary: #06b6d4;
+  --color-accent: #22d3ee;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  /* Background colors - dark blue theme */
+  --color-bg-dark: #0a0f1a;
+  --color-bg-card: #0d1421;
+  --color-bg-card-hover: #162033;
+  --color-border-card: #1e3a5f;
+
+  /* Custom animations */
+  --animate-fade-in: fade-in 0.6s ease-out;
+  --animate-new-block: new-block-flash 3s ease-in-out;
+
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes new-block-flash {
+    0%,
+    100% {
+      background-color: transparent;
+    }
+    50% {
+      background-color: rgba(59, 130, 246, 0.2);
+    }
+  }
+}
+
+/* Base styles */
+@layer base {
+  html {
+    background-color: #0a0f1a;
+  }
+
+  body {
+    background-color: #0a0f1a;
+    color: #e5e7eb;
+    padding-top: 0;
+    margin-bottom: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-white;
+  }
+
+  /* Links with blue accent */
+  a {
+    color: #60a5fa;
+  }
+
+  a:hover {
+    color: #3b82f6;
+    text-decoration: none;
+  }
+}
+
+/* Component styles */
+@layer components {
+  .container {
+    @apply w-full px-2 mx-auto;
+  }
+
+  @media (min-width: 768px) {
+    .container {
+      @apply max-w-[750px];
+    }
+  }
+
+  @media (min-width: 992px) {
+    .container {
+      @apply max-w-[970px];
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .container {
+      @apply max-w-[1170px];
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .container {
+      @apply max-w-[1400px];
+    }
+  }
+
+  /* Full-width container for large screens */
+  .container-full {
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 1536px) {
+    .container-full {
+      max-width: 1920px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .container-full {
+      max-width: 1920px;
+      width: 1920px;
+    }
+  }
+
+  /* Header and Footer wrapper */
+  .header-wrapper,
+  .footer-wrapper {
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* Modern card base styles */
+  .card-modern {
+    background: linear-gradient(135deg, #0d1421 0%, #0a1018 100%);
+    border: 1px solid rgba(30, 58, 95, 0.5);
+    border-radius: 0.75rem;
+    transition: all 0.3s ease-out;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-modern::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+  }
+
+  .card-modern:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.1);
+  }
+
+  .card-modern:hover::before {
+    opacity: 1;
+  }
+
+  /* Navigation link styles */
+  .nav-link {
+    transition: color 0.2s ease;
+  }
+
+  .nav-link:hover {
+    color: #60a5fa !important;
+  }
+}
+
+/* Utility classes */
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out;
+  }
+
+  .new-block-animation {
+    animation: new-block-flash 3s ease-in-out;
+  }
+
+  /* VBC Green text utilities */
+  .text-vbc {
+    color: #22c55e;
+  }
+
+  .text-vbc-light {
+    color: #4ade80;
+  }
+
+  /* Border utilities */
+  .border-vbc {
+    border-color: #22c55e;
+  }
+
+  /* Propagation color classes */
+  .propagation-zero {
+    color: #22c55e !important;
+  }
+
+  .propagation-fast {
+    color: #4ade80 !important;
+  }
+
+  .propagation-medium {
+    color: #facc15 !important;
+  }
+
+  .propagation-slow {
+    color: #fb923c !important;
+  }
+
+  .propagation-very-slow {
+    color: #f87171 !important;
+  }
+
+  .propagation-inactive {
+    color: #6b7280 !important;
+  }
+
+  /* Table cell propagation classes */
+  td.propagation-zero {
+    color: #22c55e !important;
+  }
+  td.propagation-fast {
+    color: #4ade80 !important;
+  }
+  td.propagation-medium {
+    color: #facc15 !important;
+  }
+  td.propagation-slow {
+    color: #fb923c !important;
+  }
+  td.propagation-very-slow {
+    color: #f87171 !important;
+  }
+  td.propagation-inactive {
+    color: #6b7280 !important;
+  }
+}
+
+/* Dark mode styles for Leaflet map */
+.leaflet-container {
+  background: #0a0f1a !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(13, 20, 33, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  border-radius: 12px !important;
+}
+
+.leaflet-popup-content {
+  color: #e5e7eb !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(13, 20, 33, 0.95) !important;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0f1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e3a5f;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+/* Custom tooltip styles */
+.tooltip {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+  backdrop-filter: blur(12px);
+}

@@ -1,15 +1,15 @@
-FROM node:lts-alpine AS builder
-ARG GRUNT_TASK=default
-WORKDIR /ethstats-server
-COPY ["package.json", "package-lock.json*", "./"]
-RUN npm ci --only=production && npm install -g grunt-cli
-COPY --chown=node:node . .
-RUN grunt $GRUNT_TASK
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
 
-FROM node:lts-alpine
-RUN apk add dumb-init
-WORKDIR /ethstats-server
-COPY --chown=node:node --from=builder /ethstats-server .
+FROM node:22-alpine
+RUN apk add --no-cache dumb-init
+WORKDIR /app
+COPY --chown=node:node --from=builder /app .
+RUN npm ci --omit=dev
 USER node
-EXPOSE  3000
-CMD ["dumb-init", "node", "./bin/www"]
+EXPOSE 3000
+CMD ["dumb-init", "node", "--env-file-if-exists=.env", "--import=tsx", "server.ts"]

@@ -120,6 +120,8 @@ Open [http://localhost:5000](http://localhost:5000) to view the dashboard.
 | `npm run typecheck` | TypeScript type check                              |
 | `npm run format`    | Format with Prettier                               |
 
+> **Git Hooks**: On `npm install`, the `prepare` script sets `core.hooksPath` to `.githooks`. A **pre-push hook** runs `npm run check` (the same checks as CI) before every `git push` and aborts the push on failure. Auto-fix with `npm run lint:fix && npm run format`, or bypass in an emergency with `git push --no-verify` (discouraged).
+
 ## 📁 Project Structure
 
 ```

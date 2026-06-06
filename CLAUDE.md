@@ -73,6 +73,18 @@ npm run format
 npm run typecheck
 ```
 
+### Git フック（pre-push）
+
+`npm install` 時に `prepare` スクリプトが `core.hooksPath` を `.githooks` に設定します。`git push` の前に [.githooks/pre-push](.githooks/pre-push) が自動で `npm run check` を実行し、失敗すると push が中止されます（CI と同一のチェック）。
+
+```bash
+# 失敗時の自動修正
+npm run lint:fix && npm run format
+
+# 緊急時のみスキップ（非推奨）
+git push --no-verify
+```
+
 ## 環境変数
 
 `.env`ファイルで設定（`.gitignore`に含まれています）：
@@ -218,7 +230,7 @@ export default function ComponentName(): React.ReactNode {
 
 ## 重要な注意点
 
-1. **コミット前に必ず `npm run check` を実行** - lint・format・型チェックが通ることを保証する
+1. **コミット前に必ず `npm run check` を実行** - lint・format・型チェックが通ることを保証する（`git push` 時に pre-push フックでも自動実行される）
 2. **`type: "module"`**: package.jsonに`"type": "module"`を指定しているため、ESM構文を使用
 
 ## トラブルシューティング

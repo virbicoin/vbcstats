@@ -23,12 +23,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/virbicoin/vbcstats.git"
+    "url": "https://github.com/virbicoin/vbc-stats.git"
   },
   "bugs": {
-    "url": "https://github.com/virbicoin/vbcstats/issues"
+    "url": "https://github.com/virbicoin/vbc-stats/issues"
   },
-  "homepage": "https://github.com/virbicoin/vbcstats#readme",
+  "homepage": "https://github.com/virbicoin/vbc-stats#readme",
   "engines": {
     "node": ">=20.0.0"
   },

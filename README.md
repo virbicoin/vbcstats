@@ -80,8 +80,8 @@ VBC Stats is a modern, real-time blockchain network statistics dashboard for Vir
 
 ```bash
 # Clone the repository
-git clone https://github.com/virbicoin/vbcstats.git
-cd vbcstats
+git clone https://github.com/virbicoin/vbc-stats.git
+cd vbc-stats
 
 # Install dependencies
 npm install
@@ -123,7 +123,7 @@ Open [http://localhost:5000](http://localhost:5000) to view the dashboard.
 ## 📁 Project Structure
 
 ```
-vbcstats/
+vbc-stats/
 ├── src/                        # Frontend source
 │   ├── app/                    # Next.js App Router
 │   │   ├── page.tsx            # Main dashboard page
@@ -169,10 +169,10 @@ NEXT_PUBLIC_WS_URL=    # Client WebSocket URL (omit for same-origin)
 ## 🐳 Docker Deployment
 
 ```bash
-docker build -t vbcstats .
+docker build -t vbc-stats .
 docker run -d -p 5000:5000 \
   -e WS_SECRET=your_secret \
-  vbcstats
+  vbc-stats
 ```
 
 ## 🔒 Security

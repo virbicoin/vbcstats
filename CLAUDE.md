@@ -230,6 +230,26 @@ export default function ComponentName(): React.ReactNode {
 6. **マップでブロック番号が"0"**: `block !== undefined && block > 0`でフィルタリング
 7. **モジュール解決エラー**: `.next`を削除してブラウザをハードリフレッシュ（Ctrl+Shift+R）
 
+## 関連リポジトリ
+
+VirBiCoin エコシステムは以下の6つのリポジトリで構成されています：
+
+| リポジトリ | 役割 | ローカルパス | URL |
+|-----------|------|-------------|-----|
+| **virbicoin.com** | 公式Webサイト（メインサイト） | `../virbicoin.com` | [github.com/virbicoin/virbicoin.com](https://github.com/virbicoin/virbicoin.com) |
+| **vbcstats** ← 本リポジトリ | ネットワーク統計ダッシュボード | `../vbcstats` | [github.com/virbicoin/vbcstats](https://github.com/virbicoin/vbcstats) |
+| **vbc-explorer** | ブロックチェーンエクスプローラー | `../vbc-explorer` | [github.com/virbicoin/vbc-explorer](https://github.com/virbicoin/vbc-explorer) |
+| **go-virbicoin** | メインクライアント（Gvbc, Go実装） | `../go-virbicoin` | [github.com/virbicoin/go-virbicoin](https://github.com/virbicoin/go-virbicoin) |
+| **open-virbicoin-pool** | マイニングプール | `../open-virbicoin-pool` | [github.com/virbicoin/open-virbicoin-pool](https://github.com/virbicoin/open-virbicoin-pool) |
+| **rpc.virbicoin.com** | RPCノードステータス & JSON-RPCプロキシ | `../rpc.virbicoin.com` | [github.com/virbicoin/rpc.virbicoin.com](https://github.com/virbicoin/rpc.virbicoin.com) |
+
+### 依存関係
+
+- **vbcstats** → **go-virbicoin**: Gvbc ノードが eth-netstats-client プロトコルでブロック/統計データを送信
+- **vbc-explorer** → **go-virbicoin**: JSON-RPC 経由でブロックチェーンデータを取得
+- **open-virbicoin-pool** → **go-virbicoin**: マイニングプールが Gvbc ノードから作業を取得
+- **rpc.virbicoin.com** → **go-virbicoin**: RPC プロキシが Gvbc ノードにリクエストを中継
+
 ## 関連リソース
 
 - [Next.js Documentation](https://nextjs.org/docs)

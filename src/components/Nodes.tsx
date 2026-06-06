@@ -339,9 +339,9 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   // Render sort indicator
   const renderSortIndicator = (field: SortField) => {
     if (sortField !== field) {
-      return <span className="text-gray-500 ml-1">↕️</span>;
+      return <span className="ml-1 text-gray-500">↕️</span>;
     }
-    return <span className="text-blue-400 ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
+    return <span className="ml-1 text-blue-400">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
   };
 
   // Helper functions for styling classes
@@ -720,144 +720,144 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   };
 
   return (
-    <div className="bg-[#0d1421] text-white p-6 rounded-lg border border-[#1e3a5f]">
-      <h2 className="text-xl font-bold mb-4">Nodes</h2>
+    <div className="rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6 text-white">
+      <h2 className="mb-4 text-xl font-bold">Nodes</h2>
 
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-gray-400 border-b border-[#1e3a5f]">
-              <th className="text-left p-2 w-8">📌</th>
-              <th className="text-left p-2 w-36">
+            <tr className="border-b border-[#1e3a5f] text-gray-400">
+              <th className="w-8 p-2 text-left">📌</th>
+              <th className="w-36 p-2 text-left">
                 <button
                   onClick={() => handleSort('name')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Node Name
                   {renderSortIndicator('name')}
                 </button>
               </th>
-              <th className="text-left p-2 w-56">
+              <th className="w-56 p-2 text-left">
                 <button
                   onClick={() => handleSort('type')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Node Type
                   {renderSortIndicator('type')}
                 </button>
               </th>
-              <th className="text-left p-2 w-20">
+              <th className="w-20 p-2 text-left">
                 <button
                   onClick={() => handleSort('latency')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Latency
                   {renderSortIndicator('latency')}
                 </button>
               </th>
-              <th className="text-left p-2 w-16">
+              <th className="w-16 p-2 text-left">
                 <button
                   onClick={() => handleSort('mining')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Mining
                   {renderSortIndicator('mining')}
                 </button>
               </th>
-              <th className="text-left p-2 w-16">
+              <th className="w-16 p-2 text-left">
                 <button
                   onClick={() => handleSort('peers')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Peers
                   {renderSortIndicator('peers')}
                 </button>
               </th>
-              <th className="text-left p-2 w-20">
+              <th className="w-20 p-2 text-left">
                 <button
                   onClick={() => handleSort('pending')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Pending
                   {renderSortIndicator('pending')}
                 </button>
               </th>
-              <th className="text-left p-2 w-20">
+              <th className="w-20 p-2 text-left">
                 <button
                   onClick={() => handleSort('block')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Last Block
                   {renderSortIndicator('block')}
                 </button>
               </th>
-              <th className="text-left p-2 w-20">
+              <th className="w-20 p-2 text-left">
                 <button
                   onClick={() => handleSort('hash')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Block Hash
                   {renderSortIndicator('hash')}
                 </button>
               </th>
-              <th className="text-left p-2 w-24">
+              <th className="w-24 p-2 text-left">
                 <button
                   onClick={() => handleSort('difficulty')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Total Difficulty
                   {renderSortIndicator('difficulty')}
                 </button>
               </th>
-              <th className="text-left p-2 w-16">
+              <th className="w-16 p-2 text-left">
                 <button
                   onClick={() => handleSort('transactions')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Txs
                   {renderSortIndicator('transactions')}
                 </button>
               </th>
-              <th className="text-left p-2 w-16">
+              <th className="w-16 p-2 text-left">
                 <button
                   onClick={() => handleSort('uncles')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Uncles
                   {renderSortIndicator('uncles')}
                 </button>
               </th>
-              <th className="text-left p-2 w-24">
+              <th className="w-24 p-2 text-left">
                 <button
                   onClick={() => handleSort('blockTime')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Block Time
                   {renderSortIndicator('blockTime')}
                 </button>
               </th>
-              <th className="text-left p-2 w-24">
+              <th className="w-24 p-2 text-left">
                 <button
                   onClick={() => handleSort('propagation')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Propagation
                   {renderSortIndicator('propagation')}
                 </button>
               </th>
-              <th className="text-left p-2 w-24">
+              <th className="w-24 p-2 text-left">
                 <button
                   onClick={() => handleSort('avgPropagation')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Avg Propagation
                   {renderSortIndicator('avgPropagation')}
                 </button>
               </th>
-              <th className="text-left p-2 w-16">
+              <th className="w-16 p-2 text-left">
                 <button
                   onClick={() => handleSort('uptime')}
-                  className="flex items-center hover:text-blue-400 transition-colors cursor-pointer"
+                  className="flex cursor-pointer items-center transition-colors hover:text-blue-400"
                 >
                   Uptime
                   {renderSortIndicator('uptime')}
@@ -868,7 +868,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
           <tbody>
             {sortedNodes.length === 0 ? (
               <tr>
-                <td colSpan={16} className="text-center p-8 text-gray-400">
+                <td colSpan={16} className="p-8 text-center text-gray-400">
                   No nodes connected
                 </td>
               </tr>
@@ -881,7 +881,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
                   <td className="p-2 text-center">
                     <button
                       onClick={() => togglePin(node.id)}
-                      className="hover:scale-110 transition-transform cursor-pointer"
+                      className="cursor-pointer transition-transform hover:scale-110"
                     >
                       {pinnedNodes.has(node.id) ? (
                         <span className="text-blue-400">📌</span>
@@ -892,7 +892,7 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
                   </td>
                   <td className="p-2">
                     <div
-                      className="font-medium cursor-pointer hover:text-cyan-400 transition-colors"
+                      className="cursor-pointer font-medium transition-colors hover:text-cyan-400"
                       onMouseEnter={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setHoveredNode({ node, x: rect.left, y: rect.top });
@@ -1050,17 +1050,17 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
       {/* Fixed position tooltip for node hover */}
       {hoveredNode && (
         <div
-          className="fixed z-[99999] bg-gray-900 border border-gray-600 rounded-lg p-3 shadow-2xl min-w-[220px] max-w-[320px] pointer-events-none"
+          className="pointer-events-none fixed z-[99999] max-w-[320px] min-w-[220px] rounded-lg border border-gray-600 bg-gray-900 p-3 shadow-2xl"
           style={{
             left: hoveredNode.x,
             top: hoveredNode.y - 10,
             transform: 'translateY(-100%)',
           }}
         >
-          <div className="text-sm font-bold text-amber-400 mb-2">
+          <div className="mb-2 text-sm font-bold text-amber-400">
             {hoveredNode.node.info?.name || hoveredNode.node.name}
           </div>
-          <div className="text-xs text-gray-300 space-y-1">
+          <div className="space-y-1 text-xs text-gray-300">
             {hoveredNode.node.geo?.city && hoveredNode.node.geo?.country && (
               <div>
                 📍 {hoveredNode.node.geo.city}, {hoveredNode.node.geo.country}

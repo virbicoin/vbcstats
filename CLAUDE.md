@@ -88,6 +88,7 @@ NEXT_PUBLIC_WS_URL=    # クライアント用WebSocket URL（省略時は同一
 ### 1. 統合サーバーアーキテクチャ
 
 `server.ts`が単一ポートでNext.jsとPrimus WebSocketを同時に提供：
+
 - `/primus` - クライアント（ブラウザ）向けWebSocket
 - `/external` - 外部サービス向けWebSocket
 - `/api` - ノード（マイナー）からのデータ受信WebSocket
@@ -98,11 +99,13 @@ NEXT_PUBLIC_WS_URL=    # クライアント用WebSocket URL（省略時は同一
 geth/gvbcノードからのデータ通信プロトコル：
 
 **Latency計測フロー:**
+
 1. クライアント → サーバー: `node-ping` with `{id, clientTime}`
 2. サーバー → クライアント: `node-pong` with `{clientTime, serverTime}`
 3. クライアント → サーバー: `latency` with `{id, latency}` (RTT計算結果、文字列)
 
 **Blockデータ:**
+
 - gethは`difficulty`と`totalDiff`を**文字列**として送信
 - `totalDiff`フィールドを`totalDifficulty`にマッピング
 - 受信時に`parseInt()`で数値に変換
@@ -234,14 +237,14 @@ export default function ComponentName(): React.ReactNode {
 
 VirBiCoin エコシステムは以下の6つのリポジトリで構成されています：
 
-| リポジトリ | 役割 | ローカルパス | URL |
-|-----------|------|-------------|-----|
-| **virbicoin.com** | 公式Webサイト（メインサイト） | `../virbicoin.com` | [github.com/virbicoin/virbicoin.com](https://github.com/virbicoin/virbicoin.com) |
-| **vbcstats** ← 本リポジトリ | ネットワーク統計ダッシュボード | `../vbcstats` | [github.com/virbicoin/vbcstats](https://github.com/virbicoin/vbcstats) |
-| **vbc-explorer** | ブロックチェーンエクスプローラー | `../vbc-explorer` | [github.com/virbicoin/vbc-explorer](https://github.com/virbicoin/vbc-explorer) |
-| **go-virbicoin** | メインクライアント（Gvbc, Go実装） | `../go-virbicoin` | [github.com/virbicoin/go-virbicoin](https://github.com/virbicoin/go-virbicoin) |
-| **open-virbicoin-pool** | マイニングプール | `../open-virbicoin-pool` | [github.com/virbicoin/open-virbicoin-pool](https://github.com/virbicoin/open-virbicoin-pool) |
-| **rpc.virbicoin.com** | RPCノードステータス & JSON-RPCプロキシ | `../rpc.virbicoin.com` | [github.com/virbicoin/rpc.virbicoin.com](https://github.com/virbicoin/rpc.virbicoin.com) |
+| リポジトリ                  | 役割                                   | ローカルパス             | URL                                                                                          |
+| --------------------------- | -------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| **virbicoin.com**           | 公式Webサイト（メインサイト）          | `../virbicoin.com`       | [github.com/virbicoin/virbicoin.com](https://github.com/virbicoin/virbicoin.com)             |
+| **vbcstats** ← 本リポジトリ | ネットワーク統計ダッシュボード         | `../vbcstats`            | [github.com/virbicoin/vbcstats](https://github.com/virbicoin/vbcstats)                       |
+| **vbc-explorer**            | ブロックチェーンエクスプローラー       | `../vbc-explorer`        | [github.com/virbicoin/vbc-explorer](https://github.com/virbicoin/vbc-explorer)               |
+| **go-virbicoin**            | メインクライアント（Gvbc, Go実装）     | `../go-virbicoin`        | [github.com/virbicoin/go-virbicoin](https://github.com/virbicoin/go-virbicoin)               |
+| **open-virbicoin-pool**     | マイニングプール                       | `../open-virbicoin-pool` | [github.com/virbicoin/open-virbicoin-pool](https://github.com/virbicoin/open-virbicoin-pool) |
+| **rpc.virbicoin.com**       | RPCノードステータス & JSON-RPCプロキシ | `../rpc.virbicoin.com`   | [github.com/virbicoin/rpc.virbicoin.com](https://github.com/virbicoin/rpc.virbicoin.com)     |
 
 ### 依存関係
 

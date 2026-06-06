@@ -274,32 +274,32 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
   };
 
   return (
-    <div className="w-full h-full relative">
+    <div className="relative h-full w-full">
       <div
         ref={mapContainerRef}
-        className="w-full h-full bg-gray-900 rounded-lg"
+        className="h-full w-full rounded-lg bg-gray-900"
         style={{ minHeight: '400px' }}
       />
 
       {/* Node count overlay */}
-      <div className="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[500]">
+      <div className="absolute top-4 left-4 z-[500] rounded-lg border border-gray-700 bg-gray-900/90 px-3 py-2 backdrop-blur-sm">
         <div className="text-sm text-gray-300">
           <span className="text-cyan-400">{nodes.length}</span> nodes connected
         </div>
-        <div className="text-xs text-gray-400 mt-1">
+        <div className="mt-1 text-xs text-gray-400">
           {nodes.filter((n) => n.latitude && n.longitude).length} geolocated
         </div>
       </div>
 
       {/* Legend */}
-      <div className="absolute top-4 right-4 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 z-[500]">
-        <div className="text-xs text-gray-300 space-y-1">
+      <div className="absolute top-4 right-4 z-[500] rounded-lg border border-gray-700 bg-gray-900/90 px-3 py-2 backdrop-blur-sm">
+        <div className="space-y-1 text-xs text-gray-300">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500 border border-gray-700"></div>
+            <div className="h-3 w-3 rounded-full border border-gray-700 bg-yellow-500"></div>
             <span>Mining Node</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 border border-gray-700"></div>
+            <div className="h-2 w-2 rounded-full border border-gray-700 bg-cyan-400"></div>
             <span>Regular Node</span>
           </div>
         </div>
@@ -310,14 +310,14 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="fixed z-[99999] bg-gray-900 border border-gray-600 rounded-lg p-3 shadow-2xl pointer-events-none"
+            className="pointer-events-none fixed z-[99999] rounded-lg border border-gray-600 bg-gray-900 p-3 shadow-2xl"
             style={{
               left: hoveredNode.x,
               top: hoveredNode.y - 10,
               transform: 'translate(-50%, -100%)',
             }}
           >
-            <div className="text-xs text-gray-300 whitespace-nowrap">
+            <div className="text-xs whitespace-nowrap text-gray-300">
               <div className="flex items-center gap-1 text-pink-400">
                 📍 {getLocationText(hoveredNode.node)}
               </div>

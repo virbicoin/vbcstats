@@ -109,16 +109,16 @@ Open [http://localhost:5000](http://localhost:5000) to view the dashboard.
 
 ## 🛠️ Available Scripts
 
-| Command             | Description                                      |
-| ------------------- | ------------------------------------------------ |
-| `npm run dev`       | Start dev server (unified Next.js + WebSocket)   |
-| `npm run build`     | Build for production                             |
-| `npm run start`     | Start production server                          |
+| Command             | Description                                        |
+| ------------------- | -------------------------------------------------- |
+| `npm run dev`       | Start dev server (unified Next.js + WebSocket)     |
+| `npm run build`     | Build for production                               |
+| `npm run start`     | Start production server                            |
 | `npm run check`     | Run all quality checks (lint + format + typecheck) |
-| `npm run lint`      | Run ESLint                                       |
-| `npm run lint:fix`  | Auto-fix ESLint issues                           |
-| `npm run typecheck` | TypeScript type check                            |
-| `npm run format`    | Format with Prettier                             |
+| `npm run lint`      | Run ESLint                                         |
+| `npm run lint:fix`  | Auto-fix ESLint issues                             |
+| `npm run typecheck` | TypeScript type check                              |
+| `npm run format`    | Format with Prettier                               |
 
 ## 📁 Project Structure
 

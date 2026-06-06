@@ -16,7 +16,7 @@ import dynamic from 'next/dynamic';
 
 const Map = dynamic(() => import('./Map'), {
   loading: () => (
-    <div className="w-full h-full bg-[#0d1421] border border-[#1e3a5f] flex items-center justify-center">
+    <div className="flex h-full w-full items-center justify-center border border-[#1e3a5f] bg-[#0d1421]">
       <p className="text-gray-400">Loading Map...</p>
     </div>
   ),
@@ -124,7 +124,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
 
   // Static time labels component
   const TimeLabels = React.memo(() => (
-    <div className="flex justify-between text-xs text-gray-400 mt-2 px-2">
+    <div className="mt-2 flex justify-between px-2 text-xs text-gray-400">
       {staticTimeLabels
         .filter((_, index) => [0, 4, 8, 12, 16, 19].includes(index))
         .map((label, idx) => (
@@ -137,8 +137,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
   return (
     <div className="grid grid-cols-4 gap-6">
       {/* Block Time Chart - top left */}
-      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Block Time</h3>
+      <div className="h-64 rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Block Time</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
             <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -171,8 +171,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Difficulty Chart - top center left */}
-      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Difficulty</h3>
+      <div className="h-64 rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Difficulty</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
             <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -207,8 +207,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Transactions Chart - top center right */}
-      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Transactions</h3>
+      <div className="h-64 rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Transactions</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
             <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -243,8 +243,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Block Propagation Chart - top right */}
-      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Block Propagation</h3>
+      <div className="h-64 rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Block Propagation</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
             <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -277,8 +277,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Uncle Count Chart - bottom left */}
-      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Uncle Count</h3>
+      <div className="h-64 rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Uncle Count</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
             <BarChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -307,8 +307,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Gas Spending Chart - bottom center left */}
-      <div className="bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64">
-        <h3 className="text-lg font-semibold text-white mb-4">Gas Spending</h3>
+      <div className="h-64 rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Gas Spending</h3>
         <div className="h-40">
           <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
             <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
@@ -343,9 +343,9 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
       </div>
 
       {/* Network Map - bottom right, spans 2 columns */}
-      <div className="col-span-2 bg-[#0d1421] border border-[#1e3a5f] rounded-lg p-6 h-64 relative">
-        <h3 className="text-lg font-semibold text-white mb-4 relative z-10">Network Map</h3>
-        <div className="absolute inset-6 bg-[#0d1421] rounded overflow-hidden">
+      <div className="relative col-span-2 h-64 rounded-lg border border-[#1e3a5f] bg-[#0d1421] p-6">
+        <h3 className="relative z-10 mb-4 text-lg font-semibold text-white">Network Map</h3>
+        <div className="absolute inset-6 overflow-hidden rounded bg-[#0d1421]">
           <Map nodes={nodes} />
         </div>
       </div>

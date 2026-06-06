@@ -26,7 +26,7 @@ const Charts = dynamic(
   () => import('@/components/Charts').then((mod) => ({ default: mod.default })),
   {
     loading: () => (
-      <div className="w-full h-full bg-[#0d1421] rounded flex items-center justify-center">
+      <div className="flex h-full w-full items-center justify-center rounded bg-[#0d1421]">
         <p className="text-gray-400">Loading Chart...</p>
       </div>
     ),
@@ -36,7 +36,7 @@ const Charts = dynamic(
 
 const Nodes = dynamic(() => import('@/components/Nodes'), {
   loading: () => (
-    <div className="w-full h-full bg-[#0d1421] rounded flex items-center justify-center">
+    <div className="flex h-full w-full items-center justify-center rounded bg-[#0d1421]">
       <p className="text-gray-400">Loading Nodes...</p>
     </div>
   ),
@@ -1453,39 +1453,39 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Main Content */}
-      <main className="container-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="container-full mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Statistics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {statCards.map((card) => (
             <div
               key={card.id}
-              className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden"
+              className="group relative overflow-hidden rounded-xl border border-[#1e3a5f]/50 bg-gradient-to-br from-[#0d1421] to-[#0a1018] p-6 transition-all duration-300 ease-out hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10"
             >
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2 flex items-center justify-between">
                 {React.cloneElement(card.icon, {
                   className: 'text-3xl ' + card.icon.props.className,
                 })}
               </div>
               <div
-                className={`text-2xl font-bold mb-1 ${
+                className={`mb-1 text-2xl font-bold ${
                   card.id === 'lastBlock' ? getLastBlockTimeColor(lastBlockTime || 0) : 'text-white'
                 }`}
               >
                 {formatStatValue(card)}
               </div>
-              <div className="text-sm text-gray-400 uppercase tracking-wide">{card.label}</div>
+              <div className="text-sm tracking-wide text-gray-400 uppercase">{card.label}</div>
             </div>
           ))}
         </div>
 
         {/* Additional Statistics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           {/* Active Nodes */}
-          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
+          <div className="group relative overflow-hidden rounded-xl border border-[#1e3a5f]/50 bg-gradient-to-br from-[#0d1421] to-[#0a1018] p-6 transition-all duration-300 ease-out hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10">
+            <div className="mb-2 flex items-center justify-between">
               <FaUsers className="text-3xl text-indigo-400" />
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="mb-1 text-2xl font-bold text-white">
               {loadingStats
                 ? '--'
                 : errorStats
@@ -1503,15 +1503,15 @@ function HomePage() {
                         : '--';
                     })()}
             </div>
-            <div className="text-sm text-gray-400 uppercase tracking-wide">Active Nodes</div>
+            <div className="text-sm tracking-wide text-gray-400 uppercase">Active Nodes</div>
           </div>
 
           {/* Gas Price */}
-          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
+          <div className="group relative overflow-hidden rounded-xl border border-[#1e3a5f]/50 bg-gradient-to-br from-[#0d1421] to-[#0a1018] p-6 transition-all duration-300 ease-out hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10">
+            <div className="mb-2 flex items-center justify-between">
               <FaMoneyBillWave className="text-3xl text-emerald-400" />
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="mb-1 text-2xl font-bold text-white">
               {loadingStats
                 ? '--'
                 : errorStats
@@ -1528,15 +1528,15 @@ function HomePage() {
                       return '--';
                     })()}
             </div>
-            <div className="text-sm text-gray-400 uppercase tracking-wide">Gas Price</div>
+            <div className="text-sm tracking-wide text-gray-400 uppercase">Gas Price</div>
           </div>
 
           {/* Gas Limit */}
-          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
+          <div className="group relative overflow-hidden rounded-xl border border-[#1e3a5f]/50 bg-gradient-to-br from-[#0d1421] to-[#0a1018] p-6 transition-all duration-300 ease-out hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10">
+            <div className="mb-2 flex items-center justify-between">
               <FaSignal className="text-3xl text-amber-400" />
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="mb-1 text-2xl font-bold text-white">
               {loadingStats
                 ? '--'
                 : errorStats
@@ -1551,18 +1551,18 @@ function HomePage() {
                       return '--';
                     })()}
             </div>
-            <div className="text-sm text-gray-400 uppercase tracking-wide">Gas Limit</div>
+            <div className="text-sm tracking-wide text-gray-400 uppercase">Gas Limit</div>
           </div>
 
           {/* Page Latency */}
-          <div className="group relative bg-gradient-to-br from-[#0d1421] to-[#0a1018] rounded-xl border border-[#1e3a5f]/50 p-6 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 ease-out overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
+          <div className="group relative overflow-hidden rounded-xl border border-[#1e3a5f]/50 bg-gradient-to-br from-[#0d1421] to-[#0a1018] p-6 transition-all duration-300 ease-out hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10">
+            <div className="mb-2 flex items-center justify-between">
               <FaClock className="text-3xl text-pink-400" />
               {latencyRetryCount > 2 && (
                 <div className="text-xs text-yellow-400">⚠️ {latencyRetryCount}</div>
               )}
             </div>
-            <div className="text-2xl font-bold text-white mb-1">
+            <div className="mb-1 text-2xl font-bold text-white">
               {(() => {
                 // Priority order: stablePageLatency > stats > pageLatency > lastValidLatency > fallback
                 if (stablePageLatency > 0) {
@@ -1584,7 +1584,7 @@ function HomePage() {
                 }
               })()}
             </div>
-            <div className="text-sm text-gray-400 uppercase tracking-wide">
+            <div className="text-sm tracking-wide text-gray-400 uppercase">
               Page Latency
               {lastValidLatency > 0 && latencyRetryCount > 0 && latencyRetryCount < 5 && (
                 <span className="text-xs"> (*last known)</span>

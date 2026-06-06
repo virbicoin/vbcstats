@@ -177,7 +177,7 @@ const MAX_PROPAGATION_HISTORY = 20;
 function addBlockToHistoryWithArrival(
   blockNumber: number,
   timestamp: number,
-  arrivalTime: number,
+  arrivalTime: number
 ): void {
   let blockTimestamp = timestamp;
 
@@ -221,7 +221,7 @@ function addPropagationToHistory(nodeId: string, propagationMs: number): void {
   }
 
   console.log(
-    `Added propagation ${propagationMs}ms to ${nodeId} history. History length: ${nodeHistory.length}`,
+    `Added propagation ${propagationMs}ms to ${nodeId} history. History length: ${nodeHistory.length}`
   );
 }
 
@@ -236,7 +236,7 @@ function calculateAvgPropagation(nodeId: string): number {
   const avg = Math.round(sum / nodeHistory.length);
 
   console.log(
-    `Calculated avg propagation for ${nodeId}: ${avg}ms (from ${nodeHistory.length} samples)`,
+    `Calculated avg propagation for ${nodeId}: ${avg}ms (from ${nodeHistory.length} samples)`
   );
   return avg;
 }
@@ -290,7 +290,10 @@ function calculateDifficulty(nodes: NodeData[]): number {
     .filter((node) => node.stats?.active && node.stats?.block)
     .map((node) => {
       let diff: number | string =
-        node.stats!.block!.difficulty || node.stats!.block!.totalDifficulty || node.stats!.block!.totalDiff || 0;
+        node.stats!.block!.difficulty ||
+        node.stats!.block!.totalDifficulty ||
+        node.stats!.block!.totalDiff ||
+        0;
       if (typeof diff === 'string') {
         diff = parseInt(diff, 10) || 0;
       }
@@ -391,7 +394,7 @@ function calculateStats(allNodes: NodeData[]) {
   const totalHashrate = calculateAvgHashrate(totalDifficulty, avgBlockTime);
   const totalUncles = activeNodes.reduce(
     (sum, node) => sum + (node.stats?.block?.uncles?.length || 0),
-    0,
+    0
   );
   const avgGasPrice = calculateAvgGasPrice(allNodes);
   const lastBlock = bestBlock > 0 ? Math.floor(Math.random() * Math.ceil(avgBlockTime)) : 0;
@@ -556,7 +559,7 @@ apiPrimus.on('connection', (spark: any) => {
       'API UPDATE received from',
       spark.nodeId,
       ':',
-      JSON.stringify(data).substring(0, 200),
+      JSON.stringify(data).substring(0, 200)
     );
     if (!spark.auth) return;
     Nodes.update(spark.nodeId, data, (err, info) => {
@@ -577,7 +580,7 @@ apiPrimus.on('connection', (spark: any) => {
       'API BLOCK received from',
       spark.nodeId,
       ':',
-      JSON.stringify(data).substring(0, 200),
+      JSON.stringify(data).substring(0, 200)
     );
 
     if (data.stats?.latency && typeof data.stats.latency === 'number' && data.stats.latency > 0) {
@@ -598,7 +601,7 @@ apiPrimus.on('connection', (spark: any) => {
       console.log(
         'Fixing corrupted block timestamp from VirBiCoin API:',
         block.timestamp,
-        '-> current time in milliseconds',
+        '-> current time in milliseconds'
       );
       block.timestamp = Date.now();
       if (data.block) data.block.timestamp = Date.now();
@@ -627,7 +630,7 @@ apiPrimus.on('connection', (spark: any) => {
           spark.nodeId,
           'already sent block',
           data.block.number,
-          '- skipping duplicate',
+          '- skipping duplicate'
         );
         return;
       }
@@ -644,7 +647,7 @@ apiPrimus.on('connection', (spark: any) => {
           spark.nodeId,
           '- propagation from first arrival:',
           propagationMs,
-          'ms',
+          'ms'
         );
       } else {
         propagationMs = 0;
@@ -654,7 +657,7 @@ apiPrimus.on('connection', (spark: any) => {
           data.block.number,
           'first arrival from',
           spark.nodeId,
-          '- reference time set',
+          '- reference time set'
         );
       }
 
@@ -726,7 +729,7 @@ apiPrimus.on('connection', (spark: any) => {
       'API PENDING received from',
       spark.nodeId,
       ':',
-      JSON.stringify(data).substring(0, 100),
+      JSON.stringify(data).substring(0, 100)
     );
     if (!spark.auth) return;
     Nodes.updatePending(spark.nodeId, data.stats || data, (err, info) => {
@@ -746,7 +749,7 @@ apiPrimus.on('connection', (spark: any) => {
       'API STATS received from',
       spark.nodeId,
       ':',
-      JSON.stringify(data).substring(0, 200),
+      JSON.stringify(data).substring(0, 200)
     );
     if (!spark.auth) return;
 
@@ -968,7 +971,7 @@ setInterval(() => {
       const pendingAge = now - (node.stats.pendingUpdatedAt || 0);
       if (pendingAge > 30000) {
         console.log(
-          `Resetting stale pending for ${node.id}: ${node.stats.pending} -> 0 (age: ${pendingAge}ms)`,
+          `Resetting stale pending for ${node.id}: ${node.stats.pending} -> 0 (age: ${pendingAge}ms)`
         );
         node.stats.pending = 0;
       }
@@ -999,17 +1002,20 @@ setInterval(() => {
 }, 5000);
 
 // Prepare Next.js and start the unified server
-nextApp.prepare().then(() => {
-  app.all('{*path}', (req: any, res: any) => {
-    return nextHandler(req, res);
-  });
+nextApp
+  .prepare()
+  .then(() => {
+    app.all('{*path}', (req: any, res: any) => {
+      return nextHandler(req, res);
+    });
 
-  server.listen(PORT, () => {
-    console.log(
-      `Server listening on http://localhost:${PORT} (${dev ? 'development' : 'production'})`,
-    );
+    server.listen(PORT, () => {
+      console.log(
+        `Server listening on http://localhost:${PORT} (${dev ? 'development' : 'production'})`
+      );
+    });
+  })
+  .catch((err: Error) => {
+    console.error('Failed to start Next.js:', err);
+    process.exit(1);
   });
-}).catch((err: Error) => {
-  console.error('Failed to start Next.js:', err);
-  process.exit(1);
-});

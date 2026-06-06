@@ -80,7 +80,7 @@
 /* Component styles */
 @layer components {
   .container {
-    @apply w-full px-2 mx-auto;
+    @apply mx-auto w-full px-2;
   }
 
   @media (min-width: 768px) {

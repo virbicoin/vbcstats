@@ -6,7 +6,7 @@ interface MinerBlocksProps {
 
 export default function MinerBlocks({ miners }: MinerBlocksProps) {
   if (!miners || miners.length === 0) {
-    return <div className="text-center text-gray-400 py-4">No miner data available</div>;
+    return <div className="py-4 text-center text-gray-400">No miner data available</div>;
   }
 
   return (
@@ -14,11 +14,11 @@ export default function MinerBlocks({ miners }: MinerBlocksProps) {
       {miners.slice(0, 5).map((miner) => (
         <div
           key={miner.miner || miner.name}
-          className="flex items-center justify-between p-2 rounded border border-[#1e3a5f] bg-[#0d1421] hover:bg-gray-750 transition-colors duration-200"
+          className="hover:bg-gray-750 flex items-center justify-between rounded border border-[#1e3a5f] bg-[#0d1421] p-2 transition-colors duration-200"
         >
           <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${getMinerColor(miner.blocks)} shadow-sm`}></div>
-            <span className="text-xs text-gray-300 truncate max-w-20 font-medium">
+            <div className={`h-2 w-2 rounded-full ${getMinerColor(miner.blocks)} shadow-sm`}></div>
+            <span className="max-w-20 truncate text-xs font-medium text-gray-300">
               {miner.name || miner.miner}
             </span>
           </div>
@@ -28,7 +28,7 @@ export default function MinerBlocks({ miners }: MinerBlocksProps) {
         </div>
       ))}
       {miners.length > 5 && (
-        <div className="text-xs text-gray-500 text-center py-1">
+        <div className="py-1 text-center text-xs text-gray-500">
           +{miners.length - 5} more miners
         </div>
       )}

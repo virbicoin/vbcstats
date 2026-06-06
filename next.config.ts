@@ -1,8 +1,8 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   // Server external packages
   serverExternalPackages: ['geoip-lite'],
-};
+} satisfies NextConfig;
 
 export default nextConfig;

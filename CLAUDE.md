@@ -8,33 +8,38 @@
 
 ### 技術スタック
 
-- **フロントエンド**: Next.js 16.2, React 19.2, TypeScript 6.0
-- **スタイリング**: Tailwind CSS 4.x
+- **フロントエンド**: Next.js 16（App Router・Turbopack）, React 19, TypeScript 6
+- **スタイリング**: Tailwind CSS 4
 - **チャート**: Recharts
 - **マップ**: Leaflet, React-Leaflet
 - **リアルタイム通信**: Primus 8 (WebSocket)
 - **バックエンド**: Express 5, Node.js 20+
 - **地理情報**: geoip-lite
+- **Lint**: ESLint 10（`@eslint-react` + `typescript-eslint`）
 - **ランタイム**: tsx（TypeScript直接実行）
 
 ## プロジェクト構造
 
 ```
 vbcstats/
-├── app/                        # Next.js App Router（ルーティングのみ）
-│   ├── page.tsx                # メインダッシュボードページ
-│   ├── layout.tsx              # ルートレイアウト
-│   ├── globals.css             # グローバルスタイル
-│   └── api/
-│       └── geoip/route.ts      # GeoIP APIエンドポイント
-├── components/                 # UIコンポーネント
-│   ├── Charts.tsx              # チャートグリッド（Recharts）
-│   ├── Nodes.tsx               # ノードテーブル
-│   ├── Map.tsx                 # Leafletマップコンポーネント
-│   ├── header.tsx              # ヘッダー
-│   └── footer.tsx              # フッター
-├── types/                      # TypeScript型定義
-│   └── server.d.ts             # Primus等のambient型宣言
+├── src/                        # フロントエンドソース
+│   ├── app/                    # Next.js App Router（ルーティング）
+│   │   ├── page.tsx            # メインダッシュボードページ
+│   │   ├── layout.tsx          # ルートレイアウト
+│   │   ├── globals.css         # グローバルスタイル
+│   │   ├── components/         # ページ固有コンポーネント
+│   │   │   └── MinerBlocks.tsx # マイナーブロック表示
+│   │   └── api/
+│   │       └── geoip/route.ts  # GeoIP APIエンドポイント
+│   ├── components/             # 再利用可能UIコンポーネント
+│   │   ├── Charts.tsx          # チャートグリッド（Recharts）
+│   │   ├── Nodes.tsx           # ノードテーブル
+│   │   ├── Map.tsx             # Leafletマップコンポーネント
+│   │   ├── header.tsx          # ヘッダー
+│   │   └── footer.tsx          # フッター
+│   └── types/                  # TypeScript型定義
+│       ├── server.d.ts         # Primus等のambient型宣言
+│       └── stats.ts            # 統計データ型定義
 ├── lib/                        # サーバーサイドライブラリ（TypeScript）
 │   ├── express.ts              # Expressアプリ設定
 │   ├── collection.ts           # ノードコレクション管理
@@ -42,7 +47,7 @@ vbcstats/
 │       └── config.ts           # サーバー設定（banned/reserved）
 ├── server.ts                   # 統合サーバー（Next.js + Primus）
 ├── public/                     # 静的ファイル
-├── tsconfig.json               # フロントエンド用（paths: @/* → ./*）
+├── tsconfig.json               # フロントエンド用（paths: @/* → ./src/*）
 └── tsconfig.server.json        # サーバー用（module: nodenext）
 ```
 
@@ -58,11 +63,14 @@ npm run build
 # 本番サーバー起動
 npm run start
 
-# リント & 型チェック & フォーマット確認
+# リント & フォーマット確認 & 型チェック
 npm run check
 
 # コードフォーマット
 npm run format
+
+# 型チェックのみ
+npm run typecheck
 ```
 
 ## 環境変数
@@ -140,9 +148,44 @@ useEffect(() => {
 
 ### 6. パスエイリアス
 
-- `tsconfig.json`: `"@/*": ["./*"]` — プロジェクトルートからの解決
+- `tsconfig.json`: `"@/*": ["./src/*"]` — `src/`ディレクトリからの解決
 - Next.js Turbopackは`tsconfig.json`のpathsを自動的に読み取る（`resolveAlias`不要）
 - TypeScript 6.0では`baseUrl`は非推奨（使用しない）
+
+## コードスタイルガイドライン
+
+### TypeScript
+
+- strict モード有効
+- 関数の引数には明示的な型を指定
+- オブジェクトの形状には `interface` を優先
+- パスエイリアスを使用: `@/*` は `./src/*` にマップ
+
+### Tailwind CSS
+
+- ユーティリティクラスを JSX に直接記述
+- 順序: レイアウト → サイズ → 余白 → 視覚 → インタラクティブ
+- 関連するクラスはまとめて記述
+
+### コンポーネントのパターン
+
+```tsx
+// 明示的な型を持つ関数コンポーネント
+export default function ComponentName(): React.ReactNode {
+  // 最初にフック
+  // イベントハンドラ
+  // レンダリング
+}
+```
+
+### ESLint ルール
+
+主に適用されるルール:
+
+- React Hooks ルール（exhaustive-deps, rules-of-hooks）
+- 未使用変数の禁止（アンダースコア例外: `_varName`）
+- Next.js 固有のルール
+- `@eslint-react` による React ベストプラクティス
 
 ## セキュリティ
 
@@ -169,6 +212,11 @@ useEffect(() => {
 1. `npm run dev`でサーバー起動
 2. ブラウザで`http://localhost:5000`にアクセス
 3. ノードが接続され、リアルタイムデータが表示されることを確認
+
+## 重要な注意点
+
+1. **コミット前に必ず `npm run check` を実行** - lint・format・型チェックが通ることを保証する
+2. **`type: "module"`**: package.jsonに`"type": "module"`を指定しているため、ESM構文を使用
 
 ## トラブルシューティング
 

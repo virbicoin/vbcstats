@@ -8,16 +8,7 @@ const config = {
   bracketSpacing: true,
   arrowParens: 'always',
   endOfLine: 'lf',
-  jsxSingleQuote: false,
-  plugins: [],
-  overrides: [
-    {
-      files: '*.json',
-      options: {
-        tabWidth: 2,
-      },
-    },
-  ],
+  plugins: ['prettier-plugin-tailwindcss'],
 };
 
 export default config;

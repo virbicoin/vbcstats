@@ -1,14 +1,15 @@
-import React from 'react';
+'use client';
+import React, { useState } from 'react';
 import { SiGithub, SiX, SiBitcoin, SiDiscord, SiTelegram } from 'react-icons/si';
 
 const Footer = () => {
+  const [year] = useState<number>(() => new Date().getFullYear());
+
   return (
     <footer className="border-t border-[#1e3a5f]/50 bg-gradient-to-r from-[#0a0f1a] via-[#0d1421] to-[#0a0f1a]">
       <div className="container-full mx-auto flex items-center justify-center px-4 py-4 text-gray-400">
         <div className="flex items-center gap-4 text-sm">
-          <span className="font-medium">
-            &copy; 2024-{new Date().getFullYear()} Digitalregion, Inc.
-          </span>
+          <span className="font-medium">&copy; 2024-{year} Digitalregion, Inc.</span>
           <span className="text-[#1e3a5f]">|</span>
           <a
             href="https://github.com/virbicoin/vbcstats"

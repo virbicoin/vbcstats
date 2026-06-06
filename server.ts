@@ -798,7 +798,7 @@ apiPrimus.on('connection', (spark: any) => {
     });
   });
 
-  spark.on('node-pong', (data: any) => {
+  spark.on('node-pong', (_data: any) => {
     if (!spark.auth) return;
     if (spark.pingStartTime && spark.nodeId) {
       const latency = Math.ceil((Date.now() - spark.pingStartTime) / 2);

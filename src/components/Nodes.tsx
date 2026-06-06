@@ -60,10 +60,8 @@ interface Node {
       time: number;
       received: number;
       propagation: number;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      transactions: any[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      uncles: any[];
+      transactions: unknown[];
+      uncles: unknown[];
     };
     propagationAvg: number;
   };
@@ -97,7 +95,7 @@ type SortField =
 type SortDirection = 'asc' | 'desc';
 
 const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
-  const [pinnedNodes, setPinnedNodes] = useState<Set<string | number>>(new Set());
+  const [pinnedNodes, setPinnedNodes] = useState<Set<string | number>>(() => new Set());
   const [hoveredNode, setHoveredNode] = useState<{ node: Node; x: number; y: number } | null>(null);
 
   // Initialize sort state from localStorage or default values
@@ -118,15 +116,17 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
   });
 
   // Real-time counter for block times - updates every second
-  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  const [currentTime, setCurrentTime] = useState<number>(() => Date.now());
 
   // Store when each node's block was first received
   const [nodeBlockBaseTimes, setNodeBlockBaseTimes] = useState<
     Map<string | number, { baseTime: number; blockNumber: number }>
-  >(new Map());
+  >(() => new Map());
 
   // Store stable node types to prevent flickering
-  const [stableNodeTypes, setStableNodeTypes] = useState<Map<string | number, string>>(new Map()); // Update current time every second for real-time block time display
+  const [stableNodeTypes, setStableNodeTypes] = useState<Map<string | number, string>>(
+    () => new Map()
+  ); // Update current time every second for real-time block time display
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
@@ -693,7 +693,6 @@ const Nodes: React.FC<NodesProps> = ({ nodes = [], bestBlock = 0 }) => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formatUptime = (uptime: any) => {
     if (typeof uptime === 'object' && uptime !== null) {
       // Handle object uptime like the server sends

@@ -1,5 +1,5 @@
 {
-  "name": "vbc-netstats",
+  "name": "vbc-stats",
   "version": "0.3.0",
   "private": true,
   "type": "module",

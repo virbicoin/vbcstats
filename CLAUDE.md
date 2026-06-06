@@ -237,14 +237,14 @@ export default function ComponentName(): React.ReactNode {
 
 VirBiCoin エコシステムは以下の6つのリポジトリで構成されています：
 
-| リポジトリ                  | 役割                                   | ローカルパス             | URL                                                                                          |
-| --------------------------- | -------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| **virbicoin.com**           | 公式Webサイト（メインサイト）          | `../virbicoin.com`       | [github.com/virbicoin/virbicoin.com](https://github.com/virbicoin/virbicoin.com)             |
-| **vbc-stats** ← 本リポジトリ | ネットワーク統計ダッシュボード         | `../vbc-stats`            | [github.com/virbicoin/vbc-stats](https://github.com/virbicoin/vbc-stats)                       |
-| **vbc-explorer**            | ブロックチェーンエクスプローラー       | `../vbc-explorer`        | [github.com/virbicoin/vbc-explorer](https://github.com/virbicoin/vbc-explorer)               |
-| **go-virbicoin**            | メインクライアント（Gvbc, Go実装）     | `../go-virbicoin`        | [github.com/virbicoin/go-virbicoin](https://github.com/virbicoin/go-virbicoin)               |
-| **open-virbicoin-pool**     | マイニングプール                       | `../open-virbicoin-pool` | [github.com/virbicoin/open-virbicoin-pool](https://github.com/virbicoin/open-virbicoin-pool) |
-| **vbc-rpc**       | RPCノードステータス & JSON-RPCプロキシ | `../vbc-rpc`   | [github.com/virbicoin/vbc-rpc](https://github.com/virbicoin/vbc-rpc)     |
+| リポジトリ                   | 役割                                   | ローカルパス             | URL                                                                                          |
+| ---------------------------- | -------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| **virbicoin.com**            | 公式Webサイト（メインサイト）          | `../virbicoin.com`       | [github.com/virbicoin/virbicoin.com](https://github.com/virbicoin/virbicoin.com)             |
+| **vbc-stats** ← 本リポジトリ | ネットワーク統計ダッシュボード         | `../vbc-stats`           | [github.com/virbicoin/vbc-stats](https://github.com/virbicoin/vbc-stats)                     |
+| **vbc-explorer**             | ブロックチェーンエクスプローラー       | `../vbc-explorer`        | [github.com/virbicoin/vbc-explorer](https://github.com/virbicoin/vbc-explorer)               |
+| **go-virbicoin**             | メインクライアント（Gvbc, Go実装）     | `../go-virbicoin`        | [github.com/virbicoin/go-virbicoin](https://github.com/virbicoin/go-virbicoin)               |
+| **open-virbicoin-pool**      | マイニングプール                       | `../open-virbicoin-pool` | [github.com/virbicoin/open-virbicoin-pool](https://github.com/virbicoin/open-virbicoin-pool) |
+| **vbc-rpc**                  | RPCノードステータス & JSON-RPCプロキシ | `../vbc-rpc`             | [github.com/virbicoin/vbc-rpc](https://github.com/virbicoin/vbc-rpc)                         |
 
 ### 依存関係
 

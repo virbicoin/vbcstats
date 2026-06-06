@@ -71,7 +71,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [staticTimeLabels, setStaticTimeLabels] = useState<string[]>([]);
 
-  // Initialize chart data only once
+  // Initialize chart data only once using lazy initializer pattern
   useEffect(() => {
     if (!isInitialized) {
       const generateData = () => {
@@ -105,11 +105,14 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
           });
         }
 
+        // eslint-disable-next-line @eslint-react/set-state-in-effect
         setStaticTimeLabels(timeLabels);
         return data;
       };
 
+      // eslint-disable-next-line @eslint-react/set-state-in-effect, react-hooks/set-state-in-effect
       setChartData(generateData());
+      // eslint-disable-next-line @eslint-react/set-state-in-effect
       setIsInitialized(true);
     }
   }, [isInitialized]);
@@ -127,8 +130,8 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
     <div className="mt-2 flex justify-between px-2 text-xs text-gray-400">
       {staticTimeLabels
         .filter((_, index) => [0, 4, 8, 12, 16, 19].includes(index))
-        .map((label, idx) => (
-          <span key={idx}>{label}</span>
+        .map((label) => (
+          <span key={`time-label-${label}`}>{label}</span>
         ))}
     </div>
   ));

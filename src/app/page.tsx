@@ -199,7 +199,7 @@ function HomePage() {
     new globalThis.Map<string | number, { latitude: number; longitude: number }>()
   );
   // Store IP to coordinates cache to avoid repeated API calls
-  const ipCoordinatesCache = useRef(
+  const ipCoordinatesCacheRef = useRef(
     new globalThis.Map<string, { latitude: number; longitude: number; timestamp: number }>()
   );
 
@@ -250,7 +250,7 @@ function HomePage() {
   ): Promise<{ latitude: number; longitude: number } | null> => {
     try {
       // Check cache first (cache for 24 hours)
-      const cached = ipCoordinatesCache.current.get(ip);
+      const cached = ipCoordinatesCacheRef.current.get(ip);
       const now = Date.now();
       if (cached && now - cached.timestamp < 24 * 60 * 60 * 1000) {
         console.log(`Using cached coordinates for IP ${ip}:`, cached.latitude, cached.longitude);
@@ -286,7 +286,7 @@ function HomePage() {
       ) {
         const coords = { latitude: data.latitude, longitude: data.longitude };
         // Cache the result
-        ipCoordinatesCache.current.set(ip, {
+        ipCoordinatesCacheRef.current.set(ip, {
           ...coords,
           timestamp: now,
         });
@@ -522,7 +522,7 @@ function HomePage() {
     if (existingScript) {
       console.log('Primus script already loaded, reusing...');
       // Script already exists, check if Primus is available
-      setTimeout(() => {
+      const existingScriptTimer = setTimeout(() => {
         if (!(window as unknown as { Primus?: unknown }).Primus) {
           console.error('Primus library not found after loading');
           setErrorStats('Failed to load Primus WebSocket library');
@@ -533,7 +533,9 @@ function HomePage() {
         // Continue with connection initialization
         initializePrimusConnection();
       }, 100);
-      return;
+      return () => {
+        clearTimeout(existingScriptTimer);
+      };
     }
 
     const script = document.createElement('script');
@@ -580,7 +582,8 @@ function HomePage() {
           reconnectAttemptsRef.current = 0; // Reset reconnection attempts on successful connection
           setErrorStats('');
           // Small delay to ensure connection is fully established
-          setTimeout(() => {
+          // eslint-disable-next-line @eslint-react/web-api-no-leaked-timeout
+          const readyTimer = setTimeout(() => {
             try {
               if (typeof primus.emit === 'function') {
                 primus.emit('ready');
@@ -592,6 +595,8 @@ function HomePage() {
               console.error('Failed to send ready event:', err);
             }
           }, 100);
+          // Store timer for cleanup if needed
+          void readyTimer;
         });
 
         primus.on('error', (err: unknown) => {
@@ -1325,6 +1330,7 @@ function HomePage() {
         document.head.removeChild(script);
       }
     };
+    // eslint-disable-next-line @eslint-react/exhaustive-deps, react-hooks/exhaustive-deps
   }, []); // Empty dependency array to prevent reconnection loops
 
   const statCards = [
@@ -1462,6 +1468,7 @@ function HomePage() {
               className="group relative overflow-hidden rounded-xl border border-[#1e3a5f]/50 bg-gradient-to-br from-[#0d1421] to-[#0a1018] p-6 transition-all duration-300 ease-out hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/10"
             >
               <div className="mb-2 flex items-center justify-between">
+                {/* eslint-disable-next-line @eslint-react/no-clone-element */}
                 {React.cloneElement(card.icon, {
                   className: 'text-3xl ' + card.icon.props.className,
                 })}

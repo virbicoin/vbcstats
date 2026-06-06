@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# Pre-push hook: run the same checks as CI before pushing.
+# This prevents CI failures by catching lint, format, and type errors locally.
+#
+# To bypass in an emergency (not recommended): git push --no-verify
+
+echo "▶ Running 'npm run check' before push (lint + format + typecheck)..."
+
+if ! npm run check; then
+  echo ""
+  echo "✖ 'npm run check' failed. Push aborted."
+  echo "  Auto-fix what you can:  npm run lint:fix && npm run format"
+  echo "  Then re-run:            npm run check"
+  echo "  To bypass (discouraged): git push --no-verify"
+  exit 1
+fi
+
+echo "✔ Checks passed. Proceeding with push."

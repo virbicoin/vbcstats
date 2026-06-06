@@ -33,6 +33,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "tsx --env-file-if-exists=.env server.ts",
     "prebuild": "npm run check",
     "build": "next build && ./scripts/copy-geoip-data.sh",

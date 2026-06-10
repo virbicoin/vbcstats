@@ -480,38 +480,54 @@ Nodes.setChartsCallback((err, charts) => {
 });
 
 // Handle API connections and events
-// `connections` is a gauge of currently-open API sockets. It must be
-// decremented on close, otherwise it only grows and eventually exceeds the
-// cap, after which every new/reconnecting node is bounced with
-// `reconnect: true` — producing a reconnection storm (each VirBiCoin node
-// behind the external eth-net-intelligence-api reporter reconnects often).
-// The cap is a safety valve against runaway sockets, so it must sit well
-// above the real node count.
-let connections = 0;
+//
+// Cap concurrent *API* sockets, but measure the live count directly from
+// apiPrimus instead of a hand-maintained counter. The previous gauge relied on
+// a `close` handler to decrement, but under the websockets transformer a socket
+// that never completes `hello` may not emit `close`, so the counter only grew
+// and eventually pinned at the cap — after which every genuine reconnecting
+// reporter was bounced before it could authenticate (stale heads everywhere).
 const C_LIMIT = 200;
+
+// Reporters that connect but never send `hello` (half-open / churning sockets)
+// would otherwise linger and crowd out the cap. Close anything that hasn't
+// authenticated within this window.
+const HELLO_TIMEOUT_MS = 15000;
+
+function countApiSparks(): number {
+  let n = 0;
+  apiPrimus.forEach(() => {
+    n++;
+  });
+  return n;
+}
 
 apiPrimus.on('connection', (spark: any) => {
   console.log('API connection opened:', spark.address.ip);
 
-  // Track closure for every accepted socket so the gauge stays accurate.
-  // Registered before the cap check so bounced sockets are logged too.
-  let counted = false;
   spark.on('close', () => {
-    if (counted) {
-      connections = Math.max(0, connections - 1);
-      counted = false;
+    if (spark.helloTimer) {
+      clearTimeout(spark.helloTimer);
+      spark.helloTimer = null;
     }
     console.log('API connection closed:', spark.address.ip);
   });
 
-  if (connections >= C_LIMIT) {
+  if (countApiSparks() > C_LIMIT) {
     // Do not ask the client to immediately reconnect: that turns an
     // overloaded server into a reconnection storm.
+    console.warn('API connection rejected (cap reached):', spark.address.ip);
     spark.end(undefined, { reconnect: false });
     return;
   }
-  connections++;
-  counted = true;
+
+  // Drop sockets that never authenticate so they can't accumulate.
+  spark.helloTimer = setTimeout(() => {
+    if (!spark.auth) {
+      console.warn('API connection timed out before hello:', spark.address.ip);
+      spark.end(undefined, { reconnect: false });
+    }
+  }, HELLO_TIMEOUT_MS);
 
   spark.on('error', (err: Error) => {
     console.error('API spark error:', spark.address.ip, err.message);
@@ -547,6 +563,12 @@ apiPrimus.on('connection', (spark: any) => {
     data.ip = spark.address.ip;
     data.spark = spark.id;
     data.latency = spark.latency || 0;
+
+    // Authenticated: cancel the pre-hello timeout so the socket is kept.
+    if (spark.helloTimer) {
+      clearTimeout(spark.helloTimer);
+      spark.helloTimer = null;
+    }
 
     const nodeIP = getNodeIP(spark) || spark.address.ip;
 
@@ -675,65 +697,78 @@ apiPrimus.on('connection', (spark: any) => {
       let propagationMs = 0;
       let arrivedTime = blockReceiveTime;
 
-      if (nodeBlocks.has(data.block.number)) {
+      // Duplicate (same block number already seen from this node): skip only the
+      // propagation bookkeeping, but still fall through to Nodes.addBlock so the
+      // node's displayed head keeps updating. Returning here used to wedge a
+      // node at a stale block whenever its reporter re-sent a block number
+      // (reconnect / periodic full report), since the number stayed in the map.
+      const isDuplicate = nodeBlocks.has(data.block.number);
+      spark.lastBlockWasDuplicate = isDuplicate;
+
+      if (!isDuplicate) {
+        const existingBlock = blockHistory.find((b) => b.number === data.block.number);
+
+        if (existingBlock) {
+          propagationMs = Math.max(0, blockReceiveTime - existingBlock.firstArrival);
+          arrivedTime = existingBlock.firstArrival;
+          console.log(
+            'Block',
+            data.block.number,
+            'from',
+            spark.nodeId,
+            '- propagation from first arrival:',
+            propagationMs,
+            'ms'
+          );
+        } else {
+          propagationMs = 0;
+          arrivedTime = blockReceiveTime;
+          console.log(
+            'Block',
+            data.block.number,
+            'first arrival from',
+            spark.nodeId,
+            '- reference time set'
+          );
+        }
+
+        nodeBlocks.set(data.block.number, blockReceiveTime);
+
+        // Evict the oldest *inserted* entry (Map preserves insertion order).
+        // Using Math.min(number) instead would repeatedly drop the lowest block
+        // number, which could re-admit an already-seen current block and let it
+        // be treated as a fresh first-arrival forever.
+        if (nodeBlocks.size > 50) {
+          const oldestKey = nodeBlocks.keys().next().value;
+          if (oldestKey !== undefined) nodeBlocks.delete(oldestKey);
+        }
+
+        data.block.received = blockReceiveTime;
+        data.block.arrived = arrivedTime;
+        data.block.propagation = Math.round(propagationMs);
+
+        console.log('Block propagation calculated (per-node tracking):', {
+          blockNumber: data.block.number,
+          nodeId: spark.nodeId,
+          blockTimestamp: data.block.timestamp,
+          blockTimestampMs,
+          firstArrival: arrivedTime,
+          receiveTime: blockReceiveTime,
+          propagationMs,
+        });
+
+        addBlockToHistoryWithArrival(data.block.number, blockTimestampMs, arrivedTime);
+      } else {
+        // Keep prior propagation if present so the client field stays stable.
+        if (data.block.propagation === undefined) data.block.propagation = 0;
         console.log(
           'Node',
           spark.nodeId,
-          'already sent block',
+          'resent block',
           data.block.number,
-          '- skipping duplicate'
-        );
-        return;
-      }
-
-      const existingBlock = blockHistory.find((b) => b.number === data.block.number);
-
-      if (existingBlock) {
-        propagationMs = Math.max(0, blockReceiveTime - existingBlock.firstArrival);
-        arrivedTime = existingBlock.firstArrival;
-        console.log(
-          'Block',
-          data.block.number,
-          'from',
-          spark.nodeId,
-          '- propagation from first arrival:',
-          propagationMs,
-          'ms'
-        );
-      } else {
-        propagationMs = 0;
-        arrivedTime = blockReceiveTime;
-        console.log(
-          'Block',
-          data.block.number,
-          'first arrival from',
-          spark.nodeId,
-          '- reference time set'
+          '- refreshing head without recomputing propagation'
         );
       }
-
-      nodeBlocks.set(data.block.number, blockReceiveTime);
-
-      if (nodeBlocks.size > 50) {
-        const oldestBlock = Math.min(...nodeBlocks.keys());
-        nodeBlocks.delete(oldestBlock);
-      }
-
-      data.block.received = blockReceiveTime;
-      data.block.arrived = arrivedTime;
-      data.block.propagation = Math.round(propagationMs);
-
-      console.log('Block propagation calculated (per-node tracking):', {
-        blockNumber: data.block.number,
-        nodeId: spark.nodeId,
-        blockTimestamp: data.block.timestamp,
-        blockTimestampMs,
-        firstArrival: arrivedTime,
-        receiveTime: blockReceiveTime,
-        propagationMs,
-      });
-
-      addBlockToHistoryWithArrival(data.block.number, blockTimestampMs, arrivedTime);
     }
 
     if (!spark.auth) return;
@@ -741,7 +776,7 @@ apiPrimus.on('connection', (spark: any) => {
       if (!err && info) {
         console.log('Block processed, broadcasting:', info.id);
 
-        if (data.block && data.block.propagation !== undefined) {
+        if (data.block && data.block.propagation !== undefined && !spark.lastBlockWasDuplicate) {
           addPropagationToHistory(spark.nodeId, data.block.propagation);
 
           const avgPropagation = calculateAvgPropagation(spark.nodeId);

@@ -316,6 +316,13 @@ function calculateAvgHashrate(difficulty: number, avgBlockTime: number): number 
 }
 
 // Calculate average gas price from connected nodes
+// Upper sanity bound (wei). A misreporting node (e.g. an openvirbicoin node
+// behind the external eth-net-intelligence-api reporter) can emit absurd gas
+// prices such as ~1e59, which would otherwise dominate this average and render
+// as e+49 in the UI. 1e15 wei = 1,000,000 Gniku, far above any realistic
+// VirBiCoin gas price, so anything above it is treated as a corrupt reading.
+const MAX_REASONABLE_GAS_PRICE = 1e15;
+
 function calculateAvgGasPrice(nodes: NodeData[]): number {
   const defaultGasPrice = 1000000000;
 
@@ -324,7 +331,7 @@ function calculateAvgGasPrice(nodes: NodeData[]): number {
   const gasPrices = nodes
     .filter((node) => node.stats?.gasPrice)
     .map((node) => node.stats!.gasPrice!)
-    .filter((price) => price > 0);
+    .filter((price) => price > 0 && price <= MAX_REASONABLE_GAS_PRICE);
 
   if (gasPrices.length === 0) return defaultGasPrice;
 
@@ -443,20 +450,38 @@ Nodes.setChartsCallback((err, charts) => {
 });
 
 // Handle API connections and events
+// `connections` is a gauge of currently-open API sockets. It must be
+// decremented on close, otherwise it only grows and eventually exceeds the
+// cap, after which every new/reconnecting node is bounced with
+// `reconnect: true` — producing a reconnection storm (each VirBiCoin node
+// behind the external eth-net-intelligence-api reporter reconnects often).
+// The cap is a safety valve against runaway sockets, so it must sit well
+// above the real node count.
 let connections = 0;
-const C_LIMIT = 5;
-const C_RESET_MS = 30000;
-setInterval(() => {
-  if (connections > C_LIMIT) connections = 0;
-}, C_RESET_MS);
+const C_LIMIT = 200;
 
 apiPrimus.on('connection', (spark: any) => {
   console.log('API connection opened:', spark.address.ip);
-  if (connections > C_LIMIT) {
-    spark.end(undefined, { reconnect: true });
+
+  // Track closure for every accepted socket so the gauge stays accurate.
+  // Registered before the cap check so bounced sockets are logged too.
+  let counted = false;
+  spark.on('close', () => {
+    if (counted) {
+      connections = Math.max(0, connections - 1);
+      counted = false;
+    }
+    console.log('API connection closed:', spark.address.ip);
+  });
+
+  if (connections >= C_LIMIT) {
+    // Do not ask the client to immediately reconnect: that turns an
+    // overloaded server into a reconnection storm.
+    spark.end(undefined, { reconnect: false });
     return;
   }
   connections++;
+  counted = true;
 
   spark.on('error', (err: Error) => {
     console.error('API spark error:', spark.address.ip, err.message);
@@ -471,10 +496,6 @@ apiPrimus.on('connection', (spark: any) => {
         }
       });
     }
-  });
-
-  spark.on('close', () => {
-    console.log('API connection closed:', spark.address.ip);
   });
 
   spark.on('hello', (data: any) => {

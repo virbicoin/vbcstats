@@ -77,8 +77,23 @@ export default class Collection {
   }
 
   add(node: NodeData, callback?: Callback): void {
-    this.nodes.set(node.id, node);
-    if (callback) callback(null, node);
+    const existing = this.nodes.get(node.id);
+    if (!existing) {
+      this.nodes.set(node.id, node);
+      if (callback) callback(null, node);
+      return;
+    }
+
+    // Node reconnected and re-sent `hello`. The hello payload carries identity/
+    // info but no `stats`, so a naive overwrite would wipe the previously
+    // collected runtime stats and flash the node back to block #0 until its
+    // next `block` event. Merge identity here but preserve prior stats.
+    const { stats: incomingStats, ...identity } = node;
+    Object.assign(existing, identity);
+    if (incomingStats) {
+      existing.stats = { ...existing.stats, ...incomingStats };
+    }
+    if (callback) callback(null, existing);
   }
 
   update(nodeId: string, data: Partial<NodeData>, callback?: Callback): void {

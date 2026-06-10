@@ -24,7 +24,7 @@ export interface NodeStats {
   pending?: number;
   pendingUpdatedAt?: number;
   latency?: number;
-  gasPrice?: number;
+  gasPrice?: number | string;
   block?: BlockData;
   uptime?: number | { up?: number; down?: number; lastStatus?: number };
   propagationAvg?: number;

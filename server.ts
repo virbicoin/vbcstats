@@ -315,12 +315,13 @@ function calculateAvgHashrate(difficulty: number, avgBlockTime: number): number 
   return Math.round(difficulty / avgBlockTime);
 }
 
-// Calculate average gas price from connected nodes
-// Upper sanity bound (wei). A misreporting node (e.g. an openvirbicoin node
-// behind the external eth-net-intelligence-api reporter) can emit absurd gas
-// prices such as ~1e59, which would otherwise dominate this average and render
-// as e+49 in the UI. 1e15 wei = 1,000,000 Gniku, far above any realistic
-// VirBiCoin gas price, so anything above it is treated as a corrupt reading.
+// Calculate average gas price from connected nodes.
+// gasPrice MUST be coerced to a number before summation. Ovbc nodes report it
+// as a string ("1000000000") while Gvbc nodes report the number 1000000000;
+// with a string in the mix, `sum + price` becomes string concatenation, so
+// e.g. nineteen "1000000000" values concatenate into a ~190-digit string that
+// divides down to ~5e+178 — the bogus e+178 Gniku seen in the UI. The upper
+// bound (1e15 wei = 1,000,000 Gniku) then rejects genuinely corrupt readings.
 const MAX_REASONABLE_GAS_PRICE = 1e15;
 
 function calculateAvgGasPrice(nodes: NodeData[]): number {
@@ -329,8 +330,11 @@ function calculateAvgGasPrice(nodes: NodeData[]): number {
   if (!nodes || nodes.length === 0) return defaultGasPrice;
 
   const gasPrices = nodes
-    .filter((node) => node.stats?.gasPrice)
-    .map((node) => node.stats!.gasPrice!)
+    .map((node) => {
+      const raw = node.stats?.gasPrice;
+      const price = typeof raw === 'string' ? parseInt(raw, 10) : raw;
+      return typeof price === 'number' && !isNaN(price) ? price : 0;
+    })
     .filter((price) => price > 0 && price <= MAX_REASONABLE_GAS_PRICE);
 
   if (gasPrices.length === 0) return defaultGasPrice;

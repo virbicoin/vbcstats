@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 // Unified server: Next.js + WebSocket (Primus) on a single port
 import expressApp from './lib/express.js';
-import { banned, reserved } from './lib/utils/config.js';
+import { banned, reserved, loadGeoOverrides } from './lib/utils/config.js';
 import Collection from './lib/collection.js';
 import type { NodeData } from './lib/collection.js';
 import geoip from 'geoip-lite';
@@ -65,6 +65,10 @@ interface BlockHistoryEntry {
 
 let blockHistory: BlockHistoryEntry[] = [];
 
+// Operator-provided geo overrides (loaded once at startup). Empty unless a
+// geo-overrides.json / GEO_OVERRIDES_FILE is present. See lib/utils/config.ts.
+const geoOverrides = loadGeoOverrides();
+
 // Function to set geographic information for a node
 function setGeo(node: NodeData, ip: string): NodeData {
   if (!ip) return node;
@@ -76,6 +80,28 @@ function setGeo(node: NodeData, ip: string): NodeData {
 
   if (!node.info) node.info = {};
   node.info.ip = cleanIp;
+
+  // Operator overrides win over geoip-lite (inaccurate for IPv6 / cloud IPs).
+  // Match on node id first, then display name, since the reporter id and the
+  // shown name can differ between client implementations.
+  const override =
+    geoOverrides[node.id] || (node.info.name ? geoOverrides[node.info.name] : undefined);
+  if (override && Array.isArray(override.ll) && override.ll.length === 2) {
+    node.geo = {
+      range: [0, 0],
+      country: override.country ?? '',
+      region: override.region ?? '',
+      eu: '0',
+      timezone: override.timezone ?? '',
+      city: override.city ?? '',
+      ll: override.ll,
+      metro: 0,
+      area: 20,
+    };
+    node.latitude = override.ll[0];
+    node.longitude = override.ll[1];
+    return node;
+  }
 
   const isLocalhost = cleanIp === '127.0.0.1' || cleanIp === 'localhost' || cleanIp === '::1';
   const isPrivateIP =

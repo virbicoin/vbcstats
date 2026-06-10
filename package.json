@@ -43,7 +43,8 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "updatedb": "node --env-file-if-exists=.env ./node_modules/geoip-lite/scripts/updatedb.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

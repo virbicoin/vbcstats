@@ -1,0 +1,15 @@
+{
+  "//": "Optional geo overrides for nodes that geoip-lite locates incorrectly (IPv6 / cloud IPs). Copy to geo-overrides.json (git-ignored) or point GEO_OVERRIDES_FILE at it, then restart the server. Each key is matched against a node's id or display name; 'll' is [latitude, longitude] and is required.",
+  "your-node-id-or-name": {
+    "ll": [35.6762, 139.6503],
+    "country": "JP",
+    "city": "Tokyo",
+    "region": "13",
+    "timezone": "Asia/Tokyo"
+  },
+  "another-node": {
+    "ll": [-33.8688, 151.2093],
+    "country": "AU",
+    "city": "Sydney"
+  }
+}

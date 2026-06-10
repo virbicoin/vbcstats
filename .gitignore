@@ -53,3 +53,6 @@ config/nodes.js
 .node-xmlhttprequest-*
 ws_secret.json
 stats.json
+
+# deployment-specific geo overrides (keep the .example, ignore the real one)
+geo-overrides.json

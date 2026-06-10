@@ -119,6 +119,7 @@ Open [http://localhost:5000](http://localhost:5000) to view the dashboard.
 | `npm run lint:fix`  | Auto-fix ESLint issues                             |
 | `npm run typecheck` | TypeScript type check                              |
 | `npm run format`    | Format with Prettier                               |
+| `npm run updatedb`  | Refresh the geoip-lite database from MaxMind       |
 
 > **Git Hooks**: On `npm install`, the `prepare` script sets `core.hooksPath` to `.githooks`. A **pre-push hook** runs `npm run check` (the same checks as CI) before every `git push` and aborts the push on failure. Auto-fix with `npm run lint:fix && npm run format`, or bypass in an emergency with `git push --no-verify` (discouraged).
 
@@ -167,6 +168,20 @@ PORT=5000              # Server port (Next.js + WebSocket unified)
 WS_SECRET=your_secret  # WebSocket auth secret (multiple: secret1|secret2)
 NEXT_PUBLIC_WS_URL=    # Client WebSocket URL (omit for same-origin)
 ```
+
+### GeoIP accuracy
+
+Node locations come from the bundled `geoip-lite` database, whose free GeoLite2
+snapshot is inaccurate for IPv6 and cloud/hosting ranges (these often resolve to
+the provider's home country rather than the datacenter region). Two optional,
+deployment-specific knobs improve this without changing source code:
+
+- **Refresh the database** — set a free MaxMind `LICENSE_KEY` in `.env` and run
+  `npm run updatedb`, then rebuild/restart. Improves coverage but cannot fix
+  cloud-range misattribution.
+- **Pin known nodes** — copy `geo-overrides.example.json` to `geo-overrides.json`
+  (git-ignored) or point `GEO_OVERRIDES_FILE` at your own file, then restart.
+  Each key matches a node's id or display name and takes precedence over geoip.
 
 ## 🐳 Docker Deployment
 

@@ -3,8 +3,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
 
 // Fix for default markers in Next.js
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -50,7 +48,6 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<globalThis.Map<string | number, L.Marker>>(new globalThis.Map());
-  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
   const [hoveredNode, setHoveredNode] = useState<{ node: Node; x: number; y: number } | null>(null);
 
   // Track node states to prevent unnecessary marker updates
@@ -99,23 +96,6 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
       maxZoom: 10,
     }).addTo(map);
 
-    // Group markers so nodes sharing a location (e.g. several nodes in the same
-    // datacenter) collapse into a single counted cluster instead of overlapping
-    // invisibly. Clicking a cluster zooms in / spiderfies to reveal each node.
-    const clusterGroup = L.markerClusterGroup({
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
-      maxClusterRadius: 40,
-      iconCreateFunction: (cluster) =>
-        L.divIcon({
-          html: `<div class="vbc-cluster-inner">${cluster.getChildCount()}</div>`,
-          className: 'vbc-cluster',
-          iconSize: L.point(32, 32),
-        }),
-    });
-    map.addLayer(clusterGroup);
-    clusterGroupRef.current = clusterGroup;
-
     mapRef.current = map;
 
     return () => {
@@ -124,7 +104,6 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         mapRef.current.remove();
         mapRef.current = null;
       }
-      clusterGroupRef.current = null;
       markersMap.clear();
     };
   }, []);
@@ -134,8 +113,6 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
 
     const map = mapRef.current;
     const existingMarkers = markersRef.current;
-    const clusterGroup = clusterGroupRef.current;
-    if (!clusterGroup) return;
 
     // Get valid nodes with coordinates
     const validNodes = nodes.filter(
@@ -152,7 +129,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
     // Remove markers for nodes that no longer exist
     existingMarkers.forEach((marker, nodeId) => {
       if (!currentNodeIds.has(nodeId)) {
-        clusterGroup.removeLayer(marker);
+        map.removeLayer(marker);
         existingMarkers.delete(nodeId);
       }
     });
@@ -248,8 +225,7 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         // Create new marker
         const marker = L.marker([node.latitude, node.longitude], {
           icon: createCustomIcon(node),
-        });
-        clusterGroup.addLayer(marker);
+        }).addTo(map);
 
         // Add hover events to show custom React tooltip
         marker.on('mouseover', function (e: L.LeafletMouseEvent) {
@@ -366,24 +342,6 @@ const Map: React.FC<MapProps> = ({ nodes }) => {
         .custom-node-marker {
           background: transparent !important;
           border: none !important;
-        }
-        .vbc-cluster {
-          background: transparent !important;
-          border: none !important;
-        }
-        .vbc-cluster-inner {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 32px;
-          height: 32px;
-          border-radius: 9999px;
-          background: rgba(17, 24, 39, 0.85);
-          border: 2px solid #06b6d4;
-          color: #e5e7eb;
-          font-size: 12px;
-          font-weight: 600;
-          box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
         }
       `}</style>
     </div>

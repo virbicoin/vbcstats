@@ -56,3 +56,4 @@ stats.json
 
 # deployment-specific geo overrides (keep the .example, ignore the real one)
 geo-overrides.json
+.claude/

@@ -68,6 +68,7 @@ VBC Stats is a modern, real-time blockchain network statistics dashboard for Vir
 ## ✨ Features
 
 - **Real-time Statistics** — Live blockchain metrics via WebSocket (Primus)
+- **Halving Countdown** — Live countdown to the next block reward reduction with era progress
 - **Network Map** — Interactive world map showing node locations with Leaflet
 - **Modern UI** — Responsive design with Tailwind CSS 4
 - **Interactive Charts** — Recharts-powered visualizations
@@ -136,6 +137,7 @@ vbc-stats/
 │   │   └── api/geoip/route.ts  # GeoIP API endpoint
 │   ├── components/             # Reusable UI components
 │   │   ├── Charts.tsx          # Chart grid (Recharts)
+│   │   ├── HalvingCountdown.tsx # Block reward halving countdown
 │   │   ├── Nodes.tsx           # Node table
 │   │   ├── Map.tsx             # Leaflet world map
 │   │   ├── header.tsx          # Header

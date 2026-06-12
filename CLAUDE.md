@@ -33,6 +33,7 @@ vbc-stats/
 │   │       └── geoip/route.ts  # GeoIP APIエンドポイント
 │   ├── components/             # 再利用可能UIコンポーネント
 │   │   ├── Charts.tsx          # チャートグリッド（Recharts）
+│   │   ├── HalvingCountdown.tsx # ブロック報酬削減カウントダウン
 │   │   ├── Nodes.tsx           # ノードテーブル
 │   │   ├── Map.tsx             # Leafletマップコンポーネント
 │   │   ├── header.tsx          # ヘッダー
@@ -166,6 +167,17 @@ useEffect(() => {
 - `tsconfig.json`: `"@/*": ["./src/*"]` — `src/`ディレクトリからの解決
 - Next.js Turbopackは`tsconfig.json`のpathsを自動的に読み取る（`resolveAlias`不要）
 - TypeScript 6.0では`baseUrl`は非推奨（使用しない）
+
+### 7. ブロック報酬スケジュール（Halving Countdown）
+
+`src/components/HalvingCountdown.tsx`の定数はgo-virbicoinのコンセンサス実装を反映している
+（出典: `consensus/ethash/consensus.go`, `params/config.go`）：
+
+- 初期報酬 8 VBC。ブロック 4,200,000 を起点に 2,100,000 ブロックごとに 1 VBC ずつ線形減少
+  （二分割の半減ではない）。ブロック 16,800,000 以降は最低 1 VBC で固定
+- 各削減ブロックにはフォーク名あり: Quiche / Miche / Rusk / Celestia / Mafuyu / Kipfel / Lumina
+- 目標ブロックタイムは 12 秒（statsの`avgBlockTime`があれば優先して残り時間を推定）
+- go-virbicoin側で報酬スケジュールが変更された場合はこのコンポーネントの定数も更新すること
 
 ## コードスタイルガイドライン
 

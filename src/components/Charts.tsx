@@ -96,7 +96,7 @@ const Charts: React.FC<ChartsProps> = ({ nodes = [] }) => {
           data.push({
             time: timeString,
             index: 19 - i,
-            blockTime: 13 + (Math.random() - 0.5) * 0.6,
+            blockTime: 12 + (Math.random() - 0.5) * 0.6,
             difficulty: 94 + (Math.random() - 0.5) * 1.2,
             uncles: Math.floor(Math.random() * 3),
             transactions: Math.floor(Math.random() * 50) + 15,

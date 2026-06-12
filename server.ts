@@ -269,7 +269,7 @@ function calculateAvgPropagation(nodeId: string): number {
 
 // Calculate average block time from block history
 function calculateAvgBlockTime(_nodes: NodeData[]): number {
-  const defaultBlockTime = 13;
+  const defaultBlockTime = 12;
 
   if (blockHistory.length < 2) {
     return defaultBlockTime;

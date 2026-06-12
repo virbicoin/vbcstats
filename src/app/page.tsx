@@ -34,6 +34,15 @@ const Charts = dynamic(
   }
 );
 
+const HalvingCountdown = dynamic(() => import('@/components/HalvingCountdown'), {
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center rounded bg-[#0d1421]">
+      <p className="text-gray-400">Loading Halving Countdown...</p>
+    </div>
+  ),
+  ssr: false,
+});
+
 const Nodes = dynamic(() => import('@/components/Nodes'), {
   loading: () => (
     <div className="flex h-full w-full items-center justify-center rounded bg-[#0d1421]">
@@ -1598,6 +1607,20 @@ function HomePage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Halving Countdown */}
+        <div className="mb-8">
+          <HalvingCountdown
+            bestBlock={
+              stableBestBlock !== null
+                ? stableBestBlock
+                : typeof stats['bestBlock']?.value === 'number'
+                  ? Number(stats['bestBlock'].value)
+                  : null
+            }
+            avgBlockTime={stableAvgBlockTime}
+          />
         </div>
 
         {/* Charts and Visualizations */}
